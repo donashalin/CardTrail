@@ -2,23 +2,18 @@
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: '/settings/profile',
-    },
-    {
-        title: 'Password',
-        href: '/settings/password',
-    },
-    {
-        title: 'Appearance',
-        href: '/settings/appearance',
-    },
-];
+const page = usePage<SharedData>();
+
+const sidebarNavItems = computed<NavItem[]>(() => [
+    { title: 'Profile', href: '/settings/profile' },
+    // Microsoft 365 users have no CardTrail password to change.
+    ...(page.props.auth.user.use_microsoft ? [] : [{ title: 'Password', href: '/settings/password' }]),
+    { title: 'Appearance', href: '/settings/appearance' },
+]);
 
 const currentPath = window.location.pathname;
 </script>

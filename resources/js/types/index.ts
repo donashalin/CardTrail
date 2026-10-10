@@ -35,6 +35,10 @@ export interface User {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    is_admin: boolean;
+    is_cardholder: boolean;
+    use_microsoft: boolean;
+    active: boolean;
     created_at: string;
     updated_at: string;
 }
