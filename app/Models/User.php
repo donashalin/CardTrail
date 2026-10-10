@@ -83,6 +83,16 @@ class User extends Authenticatable
         return $this->hasMany(CardIdentifier::class);
     }
 
+    public function reconciliations(): HasMany
+    {
+        return $this->hasMany(Reconciliation::class);
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(Receipt::class);
+    }
+
     public function scopeActive(Builder $query): void
     {
         $query->where('active', true);

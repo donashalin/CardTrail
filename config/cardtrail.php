@@ -16,4 +16,13 @@ return [
         ],
     ],
 
+    /*
+    | Receipt files. The disk must be private. "address" is the email-in
+    | address shown to cardholders (blank hides it until IT sets one up).
+    */
+    'receipts' => [
+        'disk' => env('CARDTRAIL_RECEIPTS_DISK', 'receipts'),
+        'address' => env('CARDTRAIL_RECEIPTS_ADDRESS'),
+    ],
+
 ];

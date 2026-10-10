@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\Import;
+use App\Models\Period;
+use App\Models\Reconciliation;
+use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -64,4 +68,14 @@ function importFromCsv(string $csv, array $attributes = []): Import
     Storage::disk('local')->put($import->stored_path, $csv);
 
     return $import;
+}
+
+/** A line on this cardholder's reconciliation, in a published period unless one is given. */
+function lineFor(User $user, array $attributes = [], ?Period $period = null): Transaction
+{
+    $period ??= Period::factory()->published()->create();
+    $import = $period->imports()->first() ?? Import::factory()->for($period)->confirmed()->create();
+    $reconciliation = Reconciliation::firstOrCreate(['period_id' => $period->id, 'user_id' => $user->id]);
+
+    return Transaction::factory()->for($import)->create(['reconciliation_id' => $reconciliation->id, ...$attributes]);
 }
