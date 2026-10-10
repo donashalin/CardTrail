@@ -2,9 +2,13 @@
 
 namespace App\Mail\Inbound;
 
+use App\Receipts\ReceiptType;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Psr\Http\Message\StreamInterface;
+use Throwable;
 use ZBateson\MailMimeParser\Header\AddressHeader;
 use ZBateson\MailMimeParser\Header\DateHeader;
 use ZBateson\MailMimeParser\Message;
@@ -25,8 +29,25 @@ final class EmlMailSource implements InboundMailSource
             throw new InvalidArgumentException("There’s no .eml file or folder at {$this->path}.");
         }
 
+        $limit = (int) config('cardtrail.inbound.max_email_kb', 51200) * 1024;
+
+        // One bad file is logged and skipped so the rest of the folder is still read.
         foreach ($files as $file) {
-            yield self::parse((string) file_get_contents($file), $file);
+            try {
+                if (filesize($file) > $limit) {
+                    Log::warning("Skipped {$file}: it is larger than the ".($limit / 1024).' KB email limit.');
+
+                    continue;
+                }
+
+                $email = self::parse((string) file_get_contents($file), $file);
+            } catch (Throwable $e) {
+                Log::warning("Skipped {$file}: it couldn’t be read.", ['error' => $e->getMessage()]);
+
+                continue;
+            }
+
+            yield $email;
         }
     }
 
@@ -58,10 +79,10 @@ final class EmlMailSource implements InboundMailSource
                 continue;
             }
 
-            $contents = $part->getBinaryContentStream()?->getContents();
+            $contents = self::readUpTo($part->getBinaryContentStream(), ReceiptType::MAX_KB * 1024 + 1);
 
             if ($contents !== null && $contents !== '') {
-                $attachments[] = new InboundAttachment($part->getFilename() ?: 'attachment', $contents);
+                $attachments[] = new InboundAttachment($part->getFilename() ?: self::nameFor((string) $part->getContentType()), $contents);
             }
         }
 
@@ -73,5 +94,29 @@ final class EmlMailSource implements InboundMailSource
             attachments: $attachments,
             reference: $reference,
         );
+    }
+
+    /** Just past the receipt size limit is enough to know a file is too big, without decoding all of it. */
+    private static function readUpTo(?StreamInterface $stream, int $bytes): ?string
+    {
+        if ($stream === null) {
+            return null;
+        }
+
+        $contents = '';
+
+        while (! $stream->eof() && strlen($contents) < $bytes) {
+            $contents .= $stream->read($bytes - strlen($contents));
+        }
+
+        return $contents;
+    }
+
+    /** "attachment.pdf" for a nameless PDF, so its type can still be checked. */
+    private static function nameFor(string $mime): string
+    {
+        $extension = array_search(strtolower($mime), ReceiptType::MIMES, true);
+
+        return 'attachment'.($extension === false ? '' : ".{$extension}");
     }
 }

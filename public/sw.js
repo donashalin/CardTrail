@@ -25,11 +25,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const url = new URL((event.notification.data && event.notification.data.url) || '/dashboard', self.location.origin);
+    let url = new URL((event.notification.data && event.notification.data.url) || '/dashboard', self.location.origin);
 
-    // Only ever open CardTrail's own pages, whatever a payload says.
+    // Only ever open CardTrail's own pages, whatever a payload says. A link to another host (say APP_URL is set to a
+    // different address than the one the app was installed from) opens the same page here instead.
     if (url.origin !== self.location.origin) {
-        return;
+        url = new URL(url.pathname + url.search + url.hash, self.location.origin);
     }
 
     event.waitUntil(

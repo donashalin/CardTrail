@@ -4,7 +4,10 @@ export const EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'heif', 'doc', '
  * image/* lets iPhones offer the photo library as well as files. HEIC is left out on purpose: when a page doesn't
  * ask for it, iOS converts photos to JPEG, which every browser can show. HEIC files are still accepted.
  */
-export const ACCEPT = [...EXTENSIONS.filter((extension) => !['heic', 'heif'].includes(extension)).map((extension) => `.${extension}`), 'image/*'].join(',');
+export const ACCEPT = [
+    ...EXTENSIONS.filter((extension) => !['heic', 'heif'].includes(extension)).map((extension) => `.${extension}`),
+    'image/*',
+].join(',');
 
 export const MAX_BYTES = 20 * 1024 * 1024;
 

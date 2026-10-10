@@ -35,6 +35,8 @@ return [
         'driver' => env('CARDTRAIL_INBOUND_DRIVER', 'eml'),
         'eml_path' => env('CARDTRAIL_INBOUND_EML_PATH'),
         'schedule' => (bool) env('CARDTRAIL_INBOUND_SCHEDULE', false),
+        // Emails bigger than this are skipped (and logged) rather than read into memory.
+        'max_email_kb' => (int) env('CARDTRAIL_INBOUND_MAX_EMAIL_KB', 51200),
 
         'drivers' => [
             'eml' => EmlMailSource::class,

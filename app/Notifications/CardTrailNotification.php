@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -31,6 +32,12 @@ abstract class CardTrailNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array
     {
         return $notifiable->pushSubscriptions()->exists() ? ['mail', WebPushChannel::class] : ['mail'];
+    }
+
+    /** Queued notifications go out a little later: skip anyone deactivated in the meantime. */
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return ! $notifiable instanceof User || (bool) $notifiable->fresh()?->active;
     }
 
     public function toMail(object $notifiable): MailMessage

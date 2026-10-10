@@ -6,6 +6,7 @@ use App\Models\InboundMessage;
 use App\Models\Receipt;
 use App\Models\User;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -154,4 +155,39 @@ it('skips images embedded in the email body, such as signature logos, but keeps 
 
     expect(Receipt::pluck('original_name')->sort()->values()->all())->toBe(['IMG_0042.jpg', 'taxi.pdf'])
         ->and(InboundMessage::sole())->attachment_count->toBe(2)->accepted_count->toBe(2);
+});
+
+it('carries on past an email file it can’t read', function () {
+    Log::spy();
+    File::ensureDirectoryExists($this->dir.'/0-broken.eml');
+    eml('sam@cardtrail.test', [['taxi.pdf', pdfBytes(), 'application/pdf']]);
+
+    $this->artisan('receipts:ingest', ['path' => $this->dir])->assertSuccessful();
+
+    expect(Receipt::count())->toBe(1);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message) => str_contains($message, '0-broken.eml'))->once();
+});
+
+it('skips an email file over the size limit without reading it', function () {
+    Log::spy();
+    config(['cardtrail.inbound.max_email_kb' => 2]);
+    eml('sam@cardtrail.test', [['big.pdf', pdfBytes().str_repeat('x', 4096), 'application/pdf']]);
+
+    $this->artisan('receipts:ingest', ['path' => $this->dir])->assertSuccessful();
+
+    expect(InboundMessage::count())->toBe(0);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message) => str_contains($message, 'larger than'))->once();
+});
+
+it('names an attachment that arrives without a file name after its type', function () {
+    $raw = "From: sam@cardtrail.test\r\nTo: receipts@cardtrail.test\r\nSubject: Scan\r\nMessage-ID: <noname@mail.example.test>\r\nMIME-Version: 1.0\r\n"
+        ."Content-Type: multipart/mixed; boundary=\"b1\"\r\n\r\n--b1\r\nContent-Type: text/plain\r\n\r\nSee attached.\r\n"
+        ."--b1\r\nContent-Type: application/pdf\r\nContent-Disposition: attachment\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+        .chunk_split(base64_encode(pdfBytes()))."\r\n--b1--\r\n";
+    file_put_contents($path = $this->dir.'/noname.eml', $raw);
+
+    $this->artisan('receipts:ingest', ['path' => $path])->assertSuccessful();
+
+    expect(Receipt::sole()->original_name)->toBe('attachment.pdf')
+        ->and(InboundMessage::sole()->outcome)->toBe(InboundOutcome::Accepted);
 });

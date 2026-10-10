@@ -15,6 +15,7 @@ use App\Notifications\ExportReadyNotification;
 use App\Notifications\LineQueriedNotification;
 use App\Notifications\LinesAdded;
 use App\Notifications\MonthReady;
+use App\Notifications\Nudge;
 use App\Notifications\ReconciliationSubmittedNotification;
 use App\Reconciliations\ReconciliationSubmitter;
 use App\Reviews\LineReviewer;
@@ -105,4 +106,14 @@ it('tells the admin who asked when an export is ready or has failed', function (
     Notification::assertSentTo($this->admin, ExportFailedNotification::class, function (ExportFailedNotification $notification) {
         return in_array('The receipt for row 2 is missing from storage.', $notification->toMail($this->admin)->introLines, true);
     });
+});
+
+it('drops a queued notification if the person was deactivated before it went out', function () {
+    $line = lineFor($this->sam);
+    $notification = new Nudge($line->reconciliation, $this->admin);
+    $this->sam->update(['active' => false]);
+
+    $this->sam->notify($notification);
+
+    Notification::assertNotSentTo($this->sam, Nudge::class);
 });
