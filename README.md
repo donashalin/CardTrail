@@ -40,7 +40,7 @@ Reminders: `php artisan reminders:send` (scheduled daily at 08:00).
 
 ### Local PHP upload limits
 
-PHP's defaults (`upload_max_filesize=2M`, `post_max_size=8M`) are below CardTrail's limits: receipts can be up to 20 MB each, and up to 20 can be uploaded at once to the inbox. Raise them in your `php.ini` (`php --ini` shows where it is), for example `upload_max_filesize=25M` and `post_max_size=200M`. Otherwise a normal phone photo can fail to upload.
+PHP's defaults (`upload_max_filesize=2M`, `post_max_size=8M`) are below CardTrail's limits: receipts can be up to 20 MB each, and up to 20 can be uploaded at once to the inbox. Raise them in your `php.ini` (`php --ini` shows where it is), for example `upload_max_filesize=25M` and `post_max_size=200M`. Otherwise a normal phone photo can fail to upload. On servers running PHP-FPM, `public/.user.ini` already sets these; `php artisan serve` ignores it, so set them in `php.ini` locally.
 
 ### Phones and push notifications
 
