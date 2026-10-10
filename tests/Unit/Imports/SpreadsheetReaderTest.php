@@ -99,3 +99,17 @@ it('reads semicolon- and tab-separated exports', function (string $separator) {
 
     expect((new SpreadsheetReader)->read($path, 'statement.csv')[2])->toBe(['03/10/2026', 'S CARDHOLDER', '1,00']);
 })->with(['semicolon' => ';', 'tab' => "\t"]);
+
+it('rejects an oversized file before loading it into memory', function () {
+    $csv = tempFile("Date,Description,Card Member,Account #,Amount,Category,Reference\n".str_repeat("03/10/2026,SOME MERCHANT LTD,S CARDHOLDER,XXXX-XXXXXX-01001,12.50,Travel,REF123\n", 40000), 'csv');
+    $script = tempFile(sprintf(
+        '<?php require %s; try { (new App\Imports\SpreadsheetReader)->read(%s, "statement.csv"); echo "loaded"; } catch (App\Imports\UnreadableSpreadsheet $e) { echo "rejected"; }',
+        var_export(dirname(__DIR__, 3).'/vendor/autoload.php', true),
+        var_export($csv, true),
+    ), 'php');
+
+    // A separate process with the default 128M limit, so a memory blow-up fails this test instead of the whole run.
+    exec(PHP_BINARY.' -d memory_limit=128M '.escapeshellarg($script).' 2>&1', $output, $exitCode);
+
+    expect($exitCode)->toBe(0)->and(implode("\n", $output))->toBe('rejected');
+});

@@ -25,3 +25,11 @@ it('extracts the last four digits of a card reference', function (mixed $input, 
     ['', null],
     [null, null],
 ]);
+
+it('masks card numbers split by non-breaking spaces, double spaces or dots', function (string $input) {
+    expect(CardNumberMasker::mask($input))->toBe('Card **** 0005');
+})->with([
+    'non-breaking spaces' => "Card 3782\u{00A0}822463\u{00A0}10005",
+    'double spaces' => 'Card 3782  822463  10005',
+    'dots' => 'Card 3782.822463.10005',
+]);

@@ -45,7 +45,9 @@ final class RowParser
         }
 
         $last4 = $this->map->card !== null ? CardNumberMasker::last4($cells[$this->map->card] ?? null) : null;
-        $name = $this->map->cardholder !== null ? self::text($cells[$this->map->cardholder] ?? null) : '';
+        $name = $this->map->cardholder !== null
+            ? Str::limit(CardNumberMasker::mask(self::text($cells[$this->map->cardholder] ?? null)), 100, '')
+            : '';
 
         return new ParsedRow(
             rowNumber: $rowNumber,

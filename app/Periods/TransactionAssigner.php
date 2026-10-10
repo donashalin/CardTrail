@@ -20,15 +20,17 @@ final class TransactionAssigner
      */
     public function assign(Period $period, array $transactionIds, ?User $to, User $admin): int
     {
-        if ($period->status === PeriodStatus::Closed) {
-            throw new CannotReassign('This period is closed.');
-        }
-
         if ($to && (! $to->active || ! $to->is_cardholder)) {
             throw new CannotReassign("{$to->name} isn't an active cardholder.");
         }
 
         return DB::transaction(function () use ($period, $transactionIds, $to, $admin) {
+            $period = Period::query()->whereKey($period->id)->lockForUpdate()->firstOrFail();
+
+            if ($period->status === PeriodStatus::Closed) {
+                throw new CannotReassign('This period is closed.');
+            }
+
             $lines = Transaction::query()->whereIn('id', $transactionIds)->lockForUpdate()->get();
 
             if ($lines->count() !== count(array_unique($transactionIds)) || $lines->contains(fn (Transaction $line) => $line->period_id !== $period->id)) {

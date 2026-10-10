@@ -5,8 +5,8 @@ namespace App\Imports\Parsing;
 /** Keeps full card numbers out of the database: only the last four digits ever survive. */
 final class CardNumberMasker
 {
-    /** 13–19 digits, optionally split by spaces or dashes, not touching other digits. */
-    private const CARD_NUMBER = '/(?<!\d)(?:\d[ \-]?){12,18}\d(?!\d)/';
+    /** 13–19 digits, optionally split by spaces (incl. non-breaking), dots or dashes, not touching other digits. */
+    private const CARD_NUMBER = '/(?<!\d)(?:\d[\s\x{00A0}.\-]{0,2}){12,18}\d(?!\d)/u';
 
     public static function mask(string $text): string
     {

@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Enums\ImportStatus;
 use App\Enums\PeriodStatus;
 use App\Models\Import;
+use App\Models\Period;
 use App\Models\Reconciliation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,11 @@ final class ImportCommitter
     public function commit(Import $import, User $admin, array $skip = [], array $includeDuplicates = [], array $fixes = []): CommitResult
     {
         return DB::transaction(function () use ($import, $admin, $skip, $includeDuplicates, $fixes) {
+            // Lock the period first (then the import), the same order as publish/remove/reassign, so
+            // overlapping confirms can't both miss each other's lines and a publish can't slip in between.
+            $period = Period::query()->whereKey($import->period_id)->lockForUpdate()->firstOrFail();
             $import = Import::query()->whereKey($import->id)->lockForUpdate()->firstOrFail();
-            $period = $import->period;
+            $import->setRelation('period', $period);
 
             if ($import->status !== ImportStatus::Draft) {
                 throw new ImportNotReady('This file has already been imported.');

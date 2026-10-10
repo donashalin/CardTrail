@@ -80,3 +80,13 @@ it('turns spreadsheet cell values into text', function (mixed $input, string $ex
     ['  hi ', 'hi'],
     [true, 'TRUE'],
 ]);
+
+it('masks and shortens the cardholder name so it fits the card reference column', function () {
+    $parser = new RowParser(ColumnMap::fromArray(['date' => 0, 'description' => 1, 'amount' => 2, 'cardholder' => 3]), ['Date', 'Desc', 'Amount', 'Name']);
+
+    $masked = $parser->parse(2, ['03/10/2026', 'SHOP', '1.00', 'J MANAGER 378282246310005']);
+    $long = $parser->parse(3, ['03/10/2026', 'SHOP', '1.00', str_repeat('A', 150)]);
+
+    expect($masked->cardholderName)->toBe('J MANAGER **** 0005')
+        ->and(mb_strlen($long->cardRef()))->toBe(100);
+});

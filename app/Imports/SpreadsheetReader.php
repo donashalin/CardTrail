@@ -33,6 +33,7 @@ final class SpreadsheetReader
         };
 
         $reader->setReadDataOnly(true);
+        $this->guardSize($reader, $absolutePath);
 
         $book = $this->load($reader, $absolutePath, $extension);
         $sheet = $book->getSheet(0);
@@ -56,6 +57,20 @@ final class SpreadsheetReader
         $book->disconnectWorksheets();
 
         return $rows;
+    }
+
+    /** Count rows without loading the cells, so a huge file is refused instead of exhausting memory. */
+    private function guardSize(Csv|Xlsx|Xls $reader, string $path): void
+    {
+        try {
+            $rows = $reader->listWorksheetInfo($path)[0]['totalRows'] ?? 0;
+        } catch (Throwable $e) {
+            throw new UnreadableSpreadsheet("We couldn't read this file. Check it opens in Excel and try again.", previous: $e);
+        }
+
+        if ($rows > self::MAX_ROWS + 1) {
+            throw new UnreadableSpreadsheet('This file has more than '.self::MAX_ROWS.' rows. Split it into smaller files.');
+        }
     }
 
     private function csvReader(string $path): Csv

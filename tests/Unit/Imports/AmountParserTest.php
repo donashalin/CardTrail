@@ -29,3 +29,12 @@ it('reads amounts into pence', function (mixed $input, int $expected) {
 it('returns null for anything that is not an amount', function (mixed $input) {
     expect(AmountParser::parse($input))->toBeNull();
 })->with(['12.345', 'abc', '', '1.2.3', 'CR', null, true]);
+
+it('treats commas only as thousands separators', function () {
+    expect(AmountParser::parse('12,345,678.90'))->toBe(1234567890)
+        ->and(AmountParser::parse('1,234'))->toBe(123400);
+});
+
+it('refuses decimal commas rather than reading them as a hundred times the amount', function (string $input) {
+    expect(AmountParser::parse($input))->toBeNull();
+})->with(['1,00', '1234,5', '12,34', '1,2345.00']);

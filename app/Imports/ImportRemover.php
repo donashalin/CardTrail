@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Enums\ImportStatus;
 use App\Enums\PeriodStatus;
 use App\Models\Import;
+use App\Models\Period;
 use App\Models\Reconciliation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -15,13 +16,14 @@ final class ImportRemover
     /** @throws ImportNotReady */
     public function remove(Import $import, User $admin): void
     {
-        $period = $import->period;
+        DB::transaction(function () use ($import, $admin) {
+            $period = Period::query()->whereKey($import->period_id)->lockForUpdate()->firstOrFail();
+            $import = Import::query()->whereKey($import->id)->lockForUpdate()->firstOrFail();
 
-        if ($import->status === ImportStatus::Confirmed && $period->status !== PeriodStatus::Draft) {
-            throw new ImportNotReady('Cardholders may already be working on these lines. Files can only be removed before the period is published.');
-        }
+            if ($import->status === ImportStatus::Confirmed && $period->status !== PeriodStatus::Draft) {
+                throw new ImportNotReady('Cardholders may already be working on these lines. Files can only be removed before the period is published.');
+            }
 
-        DB::transaction(function () use ($import, $period, $admin) {
             $reconciliationIds = $import->transactions()->whereNotNull('reconciliation_id')->distinct()->pluck('reconciliation_id');
 
             $import->transactions()->delete();

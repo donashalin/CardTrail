@@ -34,7 +34,7 @@ final class AmountParser
             $text = $m[1];
         }
 
-        $text = str_replace(['£', 'GBP', ',', ' '], '', $text);
+        $text = str_replace(['£', 'GBP', ' '], '', $text);
 
         if (str_starts_with($text, '-')) {
             $negative = true;
@@ -44,6 +44,15 @@ final class AmountParser
             $text = substr($text, 0, -1);
         } elseif (str_starts_with($text, '+')) {
             $text = substr($text, 1);
+        }
+
+        // Commas are only thousands separators. "1,00" (a decimal comma) is refused rather than read as £100.
+        if (str_contains($text, ',')) {
+            if (! preg_match('/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/', $text)) {
+                return null;
+            }
+
+            $text = str_replace(',', '', $text);
         }
 
         // String arithmetic, never floats, so 0.29 stays exactly 29p.
