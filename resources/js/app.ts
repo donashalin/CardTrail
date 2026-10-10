@@ -38,3 +38,12 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
+
+// The service worker only handles push notifications; it needs HTTPS (or localhost).
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+            // Push simply stays unavailable; email still works.
+        });
+    });
+}

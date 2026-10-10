@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EnablePush from '@/components/EnablePush.vue';
 import FlashMessage from '@/components/FlashMessage.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
 import ReconciliationStatusBadge from '@/components/ReconciliationStatusBadge.vue';
@@ -29,6 +30,7 @@ const firstName = user.name.split(' ')[0];
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <FlashMessage />
+            <EnablePush />
             <h1 class="text-xl font-semibold">Hello, {{ firstName }}</h1>
 
             <template v-if="user.is_cardholder || current.length || past.length">
