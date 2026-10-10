@@ -955,7 +955,7 @@ use App\Models\User;
 
 it('shows a cardholder their published months with progress and past months', function () {
     $sam = User::factory()->create();
-    $period = Period::factory()->published()->create(['label' => 'September 2026']);
+    $period = Period::factory()->published()->create(['label' => 'September 2026', 'due_date' => today()->addWeek()]);
     lineFor($sam, ['status' => TransactionStatus::Done], $period);
     lineFor($sam, [], $period);
     lineFor($sam, ['status' => TransactionStatus::Queried], $period);
