@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Auth\IdentityProvider;
+use App\Imports\ImportSheet;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
@@ -29,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
 
             return $app->make($class);
         });
+
+        $this->app->scoped(ImportSheet::class);
     }
 
     /**

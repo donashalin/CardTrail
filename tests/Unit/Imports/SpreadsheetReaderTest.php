@@ -1,0 +1,89 @@
+<?php
+
+use App\Imports\SpreadsheetReader;
+use App\Imports\UnreadableSpreadsheet;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+function tempFile(string $contents, string $extension): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'ct').'.'.$extension;
+    file_put_contents($path, $contents);
+
+    return $path;
+}
+
+function tempXlsx(callable $build): string
+{
+    $book = new Spreadsheet;
+    $build($book);
+    $path = tempnam(sys_get_temp_dir(), 'ct').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    return $path;
+}
+
+it('reads CSV rows keyed by their real row numbers, skipping blank lines', function () {
+    $path = tempFile("Date,Description,Amount\n03/10/2026,SHOP,12.50\n\n04/10/2026,CAFE,3.20\n", 'csv');
+
+    $rows = (new SpreadsheetReader)->read($path, 'statement.csv');
+
+    expect(array_keys($rows))->toBe([1, 2, 4])
+        ->and($rows[1])->toBe(['Date', 'Description', 'Amount'])
+        ->and($rows[4][1])->toBe('CAFE');
+});
+
+it('keeps CSV values as text so leading zeros survive', function () {
+    $path = tempFile("Card,Amount\n0012,-12.50\n", 'csv');
+
+    $rows = (new SpreadsheetReader)->read($path, 'statement.csv');
+
+    expect($rows[2])->toBe(['0012', '-12.50']);
+});
+
+it('strips a UTF-8 byte order mark from the first header', function () {
+    $path = tempFile("\xEF\xBB\xBFDate,Amount\n03/10/2026,1.00\n", 'csv');
+
+    expect((new SpreadsheetReader)->read($path, 'statement.csv')[1][0])->toBe('Date');
+});
+
+it('reads Windows-encoded CSVs with pound signs', function () {
+    $path = tempFile(mb_convert_encoding("Amount\n£12.50\n", 'Windows-1252', 'UTF-8'), 'csv');
+
+    expect((new SpreadsheetReader)->read($path, 'statement.csv')[2][0])->toBe('£12.50');
+});
+
+it('reads raw values from the first sheet of an XLSX file', function () {
+    $path = tempXlsx(function (Spreadsheet $book) {
+        $sheet = $book->getActiveSheet();
+        $sheet->fromArray([['Date', 'Description', 'Amount'], [46298, 'SHOP', 12.5]]);
+        $book->createSheet()->setCellValue('A1', 'ignored second sheet');
+    });
+
+    $rows = (new SpreadsheetReader)->read($path, 'statement.xlsx');
+
+    expect($rows)->toHaveCount(2)
+        ->and($rows[2][0])->toEqual(46298)
+        ->and($rows[2][2])->toEqual(12.5);
+});
+
+it('rejects unsupported file types', function () {
+    $path = tempFile('hello', 'pdf');
+
+    expect(fn () => (new SpreadsheetReader)->read($path, 'statement.pdf'))
+        ->toThrow(UnreadableSpreadsheet::class, 'CSV or Excel');
+});
+
+it('rejects a corrupt spreadsheet', function () {
+    $path = tempFile('not really a zip file', 'xlsx');
+
+    expect(fn () => (new SpreadsheetReader)->read($path, 'statement.xlsx'))
+        ->toThrow(UnreadableSpreadsheet::class);
+});
+
+it('rejects files with too many rows', function () {
+    $path = tempFile("Date,Amount\n".str_repeat("03/10/2026,1.00\n", SpreadsheetReader::MAX_ROWS + 1), 'csv');
+
+    expect(fn () => (new SpreadsheetReader)->read($path, 'statement.csv'))
+        ->toThrow(UnreadableSpreadsheet::class, 'rows');
+});
