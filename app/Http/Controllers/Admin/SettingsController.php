@@ -8,6 +8,7 @@ use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +29,13 @@ class SettingsController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $offsets = collect(explode(',', (string) $request->input('reminder_offsets', '')))
+        $raw = $request->input('reminder_offsets', '');
+
+        if (! is_string($raw) && $raw !== null) {
+            throw ValidationException::withMessages(['reminder_offsets' => 'Reminder days must be whole numbers, like 3, 0.']);
+        }
+
+        $offsets = collect(explode(',', (string) $raw))
             ->map(fn (string $value) => trim($value))
             ->filter(fn (string $value) => $value !== '')
             ->values()
@@ -40,6 +47,7 @@ class SettingsController extends Controller
         ], [
             'reminder_offsets.max' => 'Choose up to 5 reminder days.',
             'reminder_offsets.*.integer' => 'Reminder days must be whole numbers, like 3, 0.',
+            'reminder_offsets.*.min' => 'Reminder days can’t be negative. Use 0 for the due date itself.',
             'reminder_offsets.*.max' => 'Reminders can be at most 60 days before the due date.',
             'reminder_offsets.*.distinct' => 'Each reminder day can only appear once.',
         ])->after(function ($validator) {

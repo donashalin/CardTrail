@@ -105,7 +105,7 @@ final class ExportBuilder
         }
 
         if ($missing !== []) {
-            throw new RuntimeException('These receipts are missing from storage: '.implode('; ', $missing).'.');
+            throw new ExportProblem('These receipts are missing from storage: '.implode('; ', $missing).'.');
         }
 
         return $files;

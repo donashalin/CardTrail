@@ -93,7 +93,7 @@ watch(
     },
 );
 
-const select = (line: ReviewLine) => router.get(route('admin.reconciliations.review', { reconciliation: props.reconciliation.id, line: line.id }), {}, { preserveScroll: true, preserveState: true });
+const select = (line: ReviewLine) => router.get(route('admin.reconciliations.review', { reconciliation: props.reconciliation.id, line: line.id }), {}, { preserveScroll: true, preserveState: true, replace: true });
 
 const busy = ref(false);
 const options = { preserveScroll: true, preserveState: true, onStart: () => (busy.value = true), onFinish: () => (busy.value = false) };
@@ -256,9 +256,9 @@ const textareaClass =
                         </div>
                     </form>
 
-                    <div v-if="selected.comments.length" class="flex flex-col gap-3 rounded-xl border p-4">
+                    <div v-if="selected.comments.length || selected.can_comment" class="flex flex-col gap-3 rounded-xl border p-4">
                         <h3 class="font-medium">Conversation</h3>
-                        <ul class="flex flex-col gap-2">
+                        <ul v-if="selected.comments.length" class="flex flex-col gap-2">
                             <li
                                 v-for="item in selected.comments"
                                 :key="item.id"
@@ -270,8 +270,8 @@ const textareaClass =
                             </li>
                         </ul>
                         <form v-if="selected.can_comment" class="flex flex-col gap-2" @submit.prevent="sendReply">
-                            <textarea v-model="replyForm.body" rows="2" maxlength="2000" :class="textareaClass" placeholder="Reply without changing the line’s status" />
-                            <Button type="submit" variant="outline" class="self-end" :disabled="!replyForm.body.trim() || replyForm.processing">Send reply</Button>
+                            <textarea v-model="replyForm.body" rows="2" maxlength="2000" :class="textareaClass" :placeholder="selected.comments.length ? 'Reply without changing the line’s status' : 'Add a note for the cardholder without querying the line'" />
+                            <Button type="submit" variant="outline" class="self-end" :disabled="!replyForm.body.trim() || replyForm.processing">{{ selected.comments.length ? 'Send reply' : 'Send note' }}</Button>
                         </form>
                     </div>
                 </section>

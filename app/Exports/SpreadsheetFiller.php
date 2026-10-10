@@ -25,6 +25,10 @@ final class SpreadsheetFiller
      */
     public function fill(Import $import, iterable $lines): string
     {
+        if (! Storage::disk('local')->exists($import->stored_path)) {
+            throw new ExportProblem("The uploaded statement {$import->original_filename} is missing from storage, so its purposes can’t be filled in. Restore it from a backup, then export again.");
+        }
+
         $path = Storage::disk('local')->path($import->stored_path);
         $extension = strtolower(pathinfo($import->original_filename, PATHINFO_EXTENSION));
         $csv = in_array($extension, ['csv', 'txt'], true);
@@ -84,9 +88,25 @@ final class SpreadsheetFiller
 
     private function appendPurposeColumn(Worksheet $sheet, int $headerRow): int
     {
-        $column = Coordinate::columnIndexFromString($sheet->getHighestDataColumn()) + 1;
+        $column = $this->lastColumnWithData($sheet) + 1;
         $sheet->setCellValueExplicit([$column, $headerRow], 'Purpose', DataType::TYPE_STRING);
 
         return $column;
+    }
+
+    /** Formatted but empty cells count as data to PhpSpreadsheet, which would push Purpose far to the right. */
+    private function lastColumnWithData(Worksheet $sheet): int
+    {
+        $last = 1;
+
+        foreach ($sheet->getCellCollection()->getCoordinates() as $coordinate) {
+            $column = Coordinate::columnIndexFromString(Coordinate::coordinateFromString($coordinate)[0]);
+
+            if ($column > $last && trim((string) $sheet->getCell($coordinate)->getValue()) !== '') {
+                $last = $column;
+            }
+        }
+
+        return $last;
     }
 }

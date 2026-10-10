@@ -12,6 +12,7 @@ use App\Models\Receipt;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Contracts\Bus\Dispatcher;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
@@ -192,4 +193,38 @@ it('gives the queue longer than an export may take before retrying it', function
     $export = Export::factory()->make();
 
     expect(config('queue.connections.database.retry_after'))->toBeGreaterThan((new BuildExport($export))->timeout);
+});
+
+it('explains when the uploaded statement is missing from storage', function () {
+    lineFor($this->sam, ['row_number' => 2, 'purpose' => 'Supplier meeting'], $this->period);
+    Storage::disk('local')->delete($this->import->stored_path);
+    $export = Export::factory()->for($this->period)->create(['requested_by' => $this->admin->id]);
+
+    expect(fn () => app(Dispatcher::class)->dispatch(new BuildExport($export)))->toThrow(RuntimeException::class);
+
+    expect($export->fresh()->error)->toBe('The uploaded statement amex-september.csv is missing from storage, so its purposes can’t be filled in. Restore it from a backup, then export again.');
+});
+
+it('keeps unexpected error details out of the failure message', function () {
+    $export = Export::factory()->for($this->period)->create(['requested_by' => $this->admin->id]);
+
+    (new BuildExport($export))->failed(new RuntimeException('SQLSTATE[HY000]: connection refused at 10.0.0.1'));
+
+    expect($export->fresh()->error)->toBe('Something went wrong while building the export. Try again, and if it keeps failing ask IT to check the logs.');
+});
+
+it('refreshes the export list without working out the rest of the dashboard', function () {
+    lineFor($this->sam, [], $this->period);
+    Export::factory()->for($this->period)->create(['requested_by' => $this->admin->id]);
+    $version = $this->actingAs($this->admin)->get(route('admin.periods.show', $this->period))->viewData('page')['version'];
+    DB::enableQueryLog();
+
+    $this->get(route('admin.periods.show', $this->period), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) $version,
+        'X-Inertia-Partial-Component' => 'admin/periods/Show',
+        'X-Inertia-Partial-Data' => 'exports',
+    ])->assertOk()->assertJsonCount(1, 'props.exports');
+
+    expect(collect(DB::getQueryLog())->pluck('query')->filter(fn (string $sql) => str_contains($sql, 'reconciliations') || str_contains($sql, '"transactions"')))->toBeEmpty();
 });

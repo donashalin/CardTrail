@@ -3,8 +3,11 @@
 use App\Enums\ReconciliationStatus;
 use App\Enums\TransactionStatus;
 use App\Events\LineQueried;
+use App\Events\ReconciliationLinesAdded;
 use App\Models\Period;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Periods\TransactionAssigner;
 use App\Reviews\CannotReview;
 use App\Reviews\LineReviewer;
 use Illuminate\Support\Facades\Event;
@@ -107,4 +110,16 @@ it('refuses to query a line still with the cardholder, or before they submit', f
     expect(fn () => $this->reviewer->query($queried, $this->admin, 'Again?'))->toThrow(CannotReview::class)
         ->and(fn () => $this->reviewer->query($inProgress->fresh(), $this->admin, 'Hmm?'))->toThrow(CannotReview::class);
     Event::assertNotDispatched(LineQueried::class);
+});
+
+it('refuses to approve after a late reassignment reopens the month, until it is resubmitted', function () {
+    Event::fake([LineQueried::class, ReconciliationLinesAdded::class]);
+    $line = reviewLine();
+    $late = Transaction::factory()->for($line->import)->create(['reconciliation_id' => null]);
+
+    app(TransactionAssigner::class)->assign($line->period, [$late->id], $this->sam, $this->admin);
+
+    expect($line->reconciliation->fresh()->status)->toBe(ReconciliationStatus::InProgress)
+        ->and(fn () => $this->reviewer->approve($line->fresh(), $this->admin))->toThrow(CannotReview::class);
+    expect($line->fresh()->status)->toBe(TransactionStatus::Done);
 });

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 beforeEach(fn () => Storage::fake('local'));
@@ -137,4 +138,33 @@ it('fills a workbook whose formulas can’t be calculated here, leaving them for
     file_put_contents($out, app(SpreadsheetFiller::class)->fill($import, [$line]));
 
     expect(IOFactory::load($out)->getSheet(0)->getCell('E2')->getValue())->toBe('Supplier meeting');
+});
+
+it('appends Purpose after the last column with data, ignoring formatted empty cells', function () {
+    $book = new Spreadsheet;
+    $sheet = $book->getActiveSheet();
+    $sheet->fromArray([
+        ['Date', 'Description', 'Amount'],
+        ['03/10/2026', 'DEPOT CAFE', 12.5],
+    ]);
+    $sheet->getStyle('F1:Z2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
+    $sheet->getStyle('Z1')->getFont()->setBold(true);
+    $source = tempnam(sys_get_temp_dir(), 'book').'.xlsx';
+    (new Xlsx($book))->save($source);
+
+    $import = Import::factory()->create([
+        'original_filename' => 'statement.xlsx',
+        'stored_path' => 'imports/styled.xlsx',
+        'header_row' => 1,
+        'column_mapping' => ['date' => 0, 'description' => 1, 'amount' => 2],
+    ]);
+    Storage::disk('local')->put($import->stored_path, file_get_contents($source));
+    $cafe = Transaction::factory()->for($import)->create(['row_number' => 2, 'purpose' => 'Supplier meeting']);
+
+    $out = tempnam(sys_get_temp_dir(), 'out').'.xlsx';
+    file_put_contents($out, app(SpreadsheetFiller::class)->fill($import, [$cafe]));
+    $filled = IOFactory::load($out)->getSheet(0);
+
+    expect($filled->getCell('D1')->getValue())->toBe('Purpose')
+        ->and($filled->getCell('D2')->getValue())->toBe('Supplier meeting');
 });

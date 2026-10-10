@@ -6,6 +6,7 @@ use App\Enums\ExportStatus;
 use App\Events\ExportFailed;
 use App\Events\ExportReady;
 use App\Exports\ExportBuilder;
+use App\Exports\ExportProblem;
 use App\Exports\ReceiptFileNamer;
 use App\Models\Export;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -59,7 +60,10 @@ class BuildExport implements ShouldQueue
     {
         $this->export->update([
             'status' => ExportStatus::Failed,
-            'error' => Str::limit($exception?->getMessage() ?? 'Unknown error.', 500),
+            // Admins see reasons they can act on; anything else stays in the logs.
+            'error' => $exception instanceof ExportProblem
+                ? Str::limit($exception->getMessage(), 500)
+                : 'Something went wrong while building the export. Try again, and if it keeps failing ask IT to check the logs.',
             'completed_at' => now(),
         ]);
 

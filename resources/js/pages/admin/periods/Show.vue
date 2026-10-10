@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate, formatPence } from '@/lib/money';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 interface DashboardPeriod {
     id: number;
@@ -24,6 +24,7 @@ interface DashboardReconciliation {
     lines: number;
     done: number;
     queried: number;
+    approved: number;
     overdue: boolean;
 }
 
@@ -91,17 +92,47 @@ const exportFor = (userId: number | null = null) => {
     router.post(route('admin.exports.store', props.period.id), userId ? { user_id: userId } : {}, { preserveScroll: true });
 };
 
-// Exports build in the background: refresh the list until none are pending.
-let poll: ReturnType<typeof setInterval> | undefined;
+// Exports build in the background: refresh the list until none are pending, more slowly as time passes.
+// After ten minutes the queue worker is probably not running, so stop and say so.
+const POLL_LIMIT_MS = 10 * 60 * 1000;
+const pollStalled = ref(false);
+let poll: ReturnType<typeof setTimeout> | undefined;
+let pollStarted = 0;
+
+const hasPending = () => props.exports.some((item) => item.status === 'pending');
+
+const schedulePoll = () => {
+    clearTimeout(poll);
+
+    if (!hasPending()) {
+        return;
+    }
+
+    const elapsed = Date.now() - pollStarted;
+
+    if (elapsed > POLL_LIMIT_MS) {
+        pollStalled.value = true;
+
+        return;
+    }
+
+    poll = setTimeout(() => router.reload({ only: ['exports'], onFinish: schedulePoll }), elapsed < 60_000 ? 3000 : 15_000);
+};
+
 watch(
-    () => props.exports.some((item) => item.status === 'pending'),
+    hasPending,
     (pending) => {
-        clearInterval(poll);
-        poll = pending ? setInterval(() => router.reload({ only: ['exports'] }), 3000) : undefined;
+        clearTimeout(poll);
+        pollStalled.value = false;
+
+        if (pending) {
+            pollStarted = Date.now();
+            schedulePoll();
+        }
     },
     { immediate: true },
 );
-onBeforeUnmount(() => clearInterval(poll));
+onBeforeUnmount(() => clearTimeout(poll));
 
 const nudge = (row: DashboardReconciliation) => {
     if (window.confirm(`Send ${row.user.name} a reminder to finish ${props.period.label}?`)) {
@@ -165,7 +196,8 @@ const statusLabel = (row: DashboardReconciliation) => {
                                 <span v-if="!row.user.active" class="ml-1 text-xs font-normal text-red-600">Inactive: reassign their lines</span>
                             </div>
                             <div class="text-sm text-muted-foreground">
-                                {{ row.done }} of {{ row.lines }} done<span v-if="row.queried"> · {{ row.queried }} queried</span>
+                                {{ row.done }} of {{ row.lines }} done<span v-if="row.approved"> · {{ row.approved }} approved</span
+                                ><span v-if="row.queried"> · {{ row.queried }} queried</span>
                             </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -189,6 +221,9 @@ const statusLabel = (row: DashboardReconciliation) => {
             <section v-if="exports.length" data-exports class="flex flex-col gap-2">
                 <h2 class="font-medium">Exports</h2>
                 <p class="text-xs text-muted-foreground">Exports are kept for 7 days.</p>
+                <p v-if="pollStalled" class="text-sm text-amber-700 dark:text-amber-300">
+                    This export is taking longer than expected. Check the queue worker is running, then refresh the page.
+                </p>
 
                 <ul class="divide-y rounded-lg border">
                     <li v-for="item in exports" :key="item.id" class="flex items-center justify-between gap-3 p-4 text-sm">

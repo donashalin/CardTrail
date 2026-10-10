@@ -3,6 +3,7 @@
 use App\Models\ColumnMapping;
 use App\Models\Setting;
 use App\Models\User;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(fn () => $this->admin = User::factory()->admin()->create());
 
@@ -41,4 +42,24 @@ it('lists, renames and deletes saved column mappings', function () {
 
 it('keeps settings to admins', function () {
     $this->actingAs(User::factory()->create())->get(route('admin.settings.edit'))->assertForbidden();
+});
+
+it('explains that reminder days can’t be negative', function () {
+    $this->actingAs($this->admin)->put(route('admin.settings.update'), ['reminder_offsets' => '3, -1'])
+        ->assertSessionHasErrors(['reminder_offsets' => 'Reminder days can’t be negative. Use 0 for the due date itself.']);
+});
+
+it('refuses reminder days sent as a list instead of text', function () {
+    $this->actingAs($this->admin)->put(route('admin.settings.update'), ['reminder_offsets' => ['3', '0']])
+        ->assertSessionHasErrors(['reminder_offsets' => 'Reminder days must be whole numbers, like 3, 0.']);
+});
+
+it('records renaming and forgetting a column match in the activity log', function () {
+    $mapping = ColumnMapping::create(['name' => 'Amex export', 'header_signature' => str_repeat('a', 64), 'header_row' => 1, 'mapping' => ['date' => 0, 'description' => 1, 'amount' => 2]]);
+
+    $this->actingAs($this->admin)->put(route('admin.column-mappings.update', $mapping), ['name' => 'Amex corporate']);
+    $this->actingAs($this->admin)->delete(route('admin.column-mappings.destroy', $mapping));
+
+    expect(Activity::query()->where('log_name', 'settings')->where('causer_id', $this->admin->id)->pluck('description')->all())
+        ->toBe(['Renamed column match “Amex export” to “Amex corporate”', 'Forgot column match “Amex corporate”']);
 });

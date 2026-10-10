@@ -132,7 +132,7 @@ it('shows a dashboard with per-person progress, unassigned lines and totals', fu
 
     Transaction::factory()->for($import)->create(['reconciliation_id' => $samRec->id, 'amount' => 1000, 'status' => TransactionStatus::Done]);
     Transaction::factory()->for($import)->create(['reconciliation_id' => $samRec->id, 'amount' => 500, 'status' => TransactionStatus::Queried]);
-    Transaction::factory()->for($import)->create(['reconciliation_id' => $joRec->id, 'amount' => 250]);
+    Transaction::factory()->for($import)->create(['reconciliation_id' => $joRec->id, 'amount' => 250, 'status' => TransactionStatus::Approved]);
     Transaction::factory()->for($import)->create(['amount' => -100]);
 
     $this->actingAs($this->admin)
@@ -143,10 +143,13 @@ it('shows a dashboard with per-person progress, unassigned lines and totals', fu
             ->where('reconciliations.0.user.name', 'Jo')
             ->where('reconciliations.0.user.active', false)
             ->where('reconciliations.0.overdue', false)
+            ->where('reconciliations.0.done', 1)
+            ->where('reconciliations.0.approved', 1)
             ->where('reconciliations.1.user.name', 'Sam')
             ->where('reconciliations.1.lines', 2)
             ->where('reconciliations.1.done', 1)
             ->where('reconciliations.1.queried', 1)
+            ->where('reconciliations.1.approved', 0)
             ->where('reconciliations.1.overdue', true)
             ->where('imports.0.original_filename', 'sept.csv')
             ->where('unassigned_count', 1)
