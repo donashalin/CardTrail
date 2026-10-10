@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ClosePeriodController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
@@ -31,6 +32,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('periods/{period}/edit', [PeriodController::class, 'edit'])->name('periods.edit');
     Route::put('periods/{period}', [PeriodController::class, 'update'])->name('periods.update');
     Route::post('periods/{period}/publish', PublishPeriodController::class)->name('periods.publish');
+    Route::post('periods/{period}/close', ClosePeriodController::class)->name('periods.close');
 
     Route::get('periods/{period}/imports/create', [ImportController::class, 'create'])->name('imports.create');
     Route::post('periods/{period}/imports', [ImportController::class, 'store'])->name('imports.store');
