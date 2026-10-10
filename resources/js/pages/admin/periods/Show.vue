@@ -81,6 +81,9 @@ const statusLabel = (row: DashboardReconciliation) => {
                     <Button v-if="period.status !== 'closed'" as-child>
                         <Link :href="route('admin.imports.create', period.id)">Upload statement</Link>
                     </Button>
+                    <Button v-if="totals.lines > 0" variant="outline" as-child>
+                        <Link :href="route('admin.periods.lines', period.id)">Lines</Link>
+                    </Button>
                     <Button v-if="period.status !== 'closed'" variant="outline" as-child>
                         <Link :href="route('admin.periods.edit', period.id)">Edit</Link>
                     </Button>
@@ -89,6 +92,7 @@ const statusLabel = (row: DashboardReconciliation) => {
 
             <section v-if="unassigned_count > 0" data-unassigned class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
                 {{ unassigned_count }} {{ unassigned_count === 1 ? 'line is' : 'lines are' }} not matched to anyone yet.
+                <Link :href="route('admin.periods.lines', period.id)" class="ml-1 font-medium underline underline-offset-4">Assign them</Link>
             </section>
 
             <section class="flex flex-col gap-2">

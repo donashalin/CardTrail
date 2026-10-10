@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
 use App\Http\Controllers\Admin\PeriodController;
+use App\Http\Controllers\Admin\PeriodLinesController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use Illuminate\Support\Facades\Route;
@@ -32,4 +33,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('imports/{import}/mapping', [ImportMappingController::class, 'update'])->name('imports.mapping.update');
     Route::get('imports/{import}/preview', [ImportPreviewController::class, 'show'])->name('imports.preview');
     Route::post('imports/{import}/confirm', [ImportPreviewController::class, 'store'])->name('imports.confirm');
+
+    Route::get('periods/{period}/lines', [PeriodLinesController::class, 'index'])->name('periods.lines');
+    Route::put('periods/{period}/lines/assignment', [PeriodLinesController::class, 'update'])->name('periods.lines.assign');
 });
