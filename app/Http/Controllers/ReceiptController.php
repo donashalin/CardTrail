@@ -39,6 +39,10 @@ class ReceiptController extends Controller
                 ? Transaction::query()->whereKey($receipt->transaction_id)->lockForUpdate()->first()
                 : null;
 
+            // Checked again under the lock: the month may have been submitted since the first check.
+            $receipt = Receipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
+            Gate::authorize('manage', $receipt);
+
             $receipt->delete();
 
             if ($line) {

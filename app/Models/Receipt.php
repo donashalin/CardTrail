@@ -55,7 +55,8 @@ class Receipt extends Model
     /** The original name, with the extension of what is actually stored (a HEIC photo may now be a JPEG). */
     public function downloadName(): string
     {
-        return pathinfo($this->original_name, PATHINFO_FILENAME).'.'.pathinfo($this->path, PATHINFO_EXTENSION);
+        // Names from Windows or email can carry backslashes, which a download header can't hold.
+        return str_replace('\\', '-', pathinfo($this->original_name, PATHINFO_FILENAME)).'.'.pathinfo($this->path, PATHINFO_EXTENSION);
     }
 
     /** @return array<string, mixed> */

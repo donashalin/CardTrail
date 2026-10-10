@@ -95,3 +95,37 @@ it('moves a receipt from a line back to the inbox', function () {
     expect($receipt->fresh()->transaction_id)->toBeNull()
         ->and($line->fresh()->status)->toBe(TransactionStatus::Todo);
 });
+
+it('ignores an amount that is not a single value', function () {
+    $receipt = Receipt::factory()->for($this->sam)->create();
+
+    $this->actingAs($this->sam)->get(route('receipts.match', $receipt).'?amount[]=12')->assertOk();
+});
+
+it('refuses moving a receipt to the inbox once the month is submitted', function () {
+    $line = lineFor($this->sam, ['purpose' => 'Fuel', 'status' => TransactionStatus::Done]);
+    $receipt = Receipt::factory()->attachedTo($line)->create();
+    $line->reconciliation->update(['status' => ReconciliationStatus::Submitted]);
+
+    $this->actingAs($this->sam)->delete(route('receipts.match.destroy', $receipt))->assertForbidden();
+
+    expect($receipt->fresh()->transaction_id)->toBe($line->id);
+});
+
+it('stores none of the files when an upload fails partway', function () {
+    $created = 0;
+    Receipt::creating(function () use (&$created) {
+        if (++$created === 2) {
+            throw new RuntimeException('Database went away');
+        }
+    });
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->actingAs($this->sam)->post(route('receipts.store'), [
+        'files' => [UploadedFile::fake()->create('a.pdf', 10, 'application/pdf'), UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')],
+    ]))->toThrow(RuntimeException::class);
+
+    expect(Storage::disk('receipts')->allFiles())->toBe([])
+        ->and(Receipt::count())->toBe(0);
+});

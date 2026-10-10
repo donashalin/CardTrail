@@ -78,6 +78,8 @@ final class ReceiptType
             'files.required' => 'Choose at least one file.',
             'files.max' => 'Upload up to :max files at a time.',
             'files.*.max' => 'Each file must be 20 MB or smaller.',
+            // PHP refused the file before Laravel saw it, almost always because of upload_max_filesize.
+            'files.*.uploaded' => 'A file was bigger than the server accepts, or didn’t finish uploading. Try a smaller file, or ask IT to raise the upload limit.',
             'files.*.extensions' => 'Receipts must be PDF, JPG, PNG, HEIC, DOC or DOCX files.',
         ];
     }

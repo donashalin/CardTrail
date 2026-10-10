@@ -7,15 +7,45 @@ use App\Jobs\ProcessReceiptImage;
 use App\Models\Receipt;
 use App\Models\Transaction;
 use App\Models\User;
+use Closure;
 use finfo;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Throwable;
 
 /** The one way receipt files reach storage: uploads now, email attachments in Plan 5. */
 final class ReceiptStore
 {
+    /** @var list<string> Files stored during the current transaction(). */
+    private array $written = [];
+
+    /**
+     * Runs the work in a database transaction. If it fails, files stored during it are deleted too,
+     * so a rolled-back upload or email leaves nothing behind on disk.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $work
+     * @return T
+     */
+    public function transaction(Closure $work): mixed
+    {
+        $this->written = [];
+
+        try {
+            return DB::transaction($work);
+        } catch (Throwable $e) {
+            Storage::disk($this->disk())->delete($this->written);
+
+            throw $e;
+        } finally {
+            $this->written = [];
+        }
+    }
+
     public function storeUpload(UploadedFile $file, User $owner, ReceiptSource $source, ?Transaction $line = null): Receipt
     {
         $name = $file->getClientOriginalName();
@@ -23,6 +53,7 @@ final class ReceiptStore
         $path = $this->newPath($owner, $extension);
 
         Storage::disk($this->disk())->putFileAs(dirname($path), $file, basename($path));
+        $this->written[] = $path;
 
         return $this->record($owner, $source, $line, $path, $name, ReceiptType::storedMime($extension, (string) $file->getMimeType()), (int) $file->getSize());
     }
@@ -39,6 +70,7 @@ final class ReceiptStore
 
         $path = $this->newPath($owner, $extension);
         Storage::disk($this->disk())->put($path, $contents);
+        $this->written[] = $path;
 
         return $this->record($owner, $source, null, $path, $originalName, ReceiptType::storedMime($extension, $detected), strlen($contents), $inboundMessageId);
     }

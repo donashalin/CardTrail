@@ -8,7 +8,6 @@ use App\Models\InboundMessage;
 use App\Models\User;
 use App\Receipts\ReceiptStore;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
 
 /** Records an inbound email and turns its accepted attachments into the sender's inbox receipts. */
 final class ReceiptIngestor
@@ -23,7 +22,7 @@ final class ReceiptIngestor
         }
 
         try {
-            return DB::transaction(fn () => $this->record($email, $driver));
+            return $this->store->transaction(fn () => $this->record($email, $driver));
         } catch (UniqueConstraintViolationException) {
             return null; // Another run recorded it a moment ago.
         }

@@ -8,7 +8,6 @@ use App\Receipts\ReceiptStore;
 use App\Receipts\ReceiptType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -26,7 +25,7 @@ class TransactionReceiptController extends Controller
 
         $files = $request->file('files');
 
-        DB::transaction(function () use ($request, $transaction, $store, $data, $files) {
+        $store->transaction(function () use ($request, $transaction, $store, $data, $files) {
             $line = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
             Gate::authorize('update', $line);
 

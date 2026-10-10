@@ -25,7 +25,7 @@ class ReceiptMatchController extends Controller
             return to_route('transactions.show', $receipt->transaction_id);
         }
 
-        $typed = (string) $request->query('amount', '');
+        $typed = is_string($request->query('amount')) ? $request->query('amount') : '';
         $amount = $typed === '' ? null : AmountParser::parse($typed);
         $amount = $amount === null ? null : abs($amount);
         $anchor = $receipt->created_at->toImmutable()->startOfDay();
@@ -113,6 +113,11 @@ class ReceiptMatchController extends Controller
 
         DB::transaction(function () use ($request, $receipt) {
             $line = Transaction::query()->whereKey($receipt->transaction_id)->lockForUpdate()->firstOrFail();
+
+            // Checked again under the lock: the month may have been submitted since the first check.
+            $receipt = Receipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
+            Gate::authorize('manage', $receipt);
+
             $receipt->update(['transaction_id' => null]);
             $line->refreshStatus();
             $line->save();

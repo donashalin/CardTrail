@@ -27,7 +27,9 @@ final class ReconciliationSubmitter
                 throw new CannotSubmit('There are no lines to submit.');
             }
 
-            $open = $reconciliation->transactions()->whereIn('status', [TransactionStatus::Todo, TransactionStatus::Queried])->count();
+            // Lines locked too, so a receipt being deleted or moved at this moment is counted after it lands.
+            $statuses = $reconciliation->transactions()->lockForUpdate()->pluck('status');
+            $open = $statuses->filter(fn (TransactionStatus $status) => in_array($status, [TransactionStatus::Todo, TransactionStatus::Queried], true))->count();
 
             if ($open > 0) {
                 throw new CannotSubmit("{$open} ".Str::plural('line', $open).' still need finishing before you can submit.');

@@ -4,9 +4,12 @@ namespace App\Receipts;
 
 use App\Models\Receipt;
 use GdImage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Imagick;
+use Throwable;
 
 /** Turns HEIC photos into JPEGs and shrinks big photos, so receipts load quickly on phones. */
 final class ImageOptimiser
@@ -41,15 +44,35 @@ final class ImageOptimiser
         }
 
         [$bytes, $mime, $extension] = $result;
-        $path = preg_replace('/\.[^.\/]+$/', '.'.$extension, $receipt->path);
 
+        // A new file, recorded before the original goes, so the receipt always points at a file that exists.
+        $path = dirname($receipt->path).'/'.Str::uuid().'.'.$extension;
         $disk->put($path, $bytes);
 
-        if ($path !== $receipt->path) {
-            $disk->delete($receipt->path);
+        try {
+            $recorded = DB::transaction(function () use ($receipt, $path, $mime, $bytes) {
+                $current = Receipt::query()->whereKey($receipt->id)->lockForUpdate()->first();
+
+                // Deleted, or its file replaced, while we were working.
+                if ($current === null || $current->path !== $receipt->path) {
+                    return false;
+                }
+
+                $current->update(['path' => $path, 'mime' => $mime, 'size' => strlen($bytes)]);
+
+                return true;
+            });
+        } catch (Throwable $e) {
+            $disk->delete($path);
+
+            throw $e;
         }
 
-        $receipt->update(['path' => $path, 'mime' => $mime, 'size' => strlen($bytes)]);
+        $disk->delete($recorded ? $receipt->path : $path);
+
+        if ($recorded) {
+            $receipt->refresh();
+        }
     }
 
     /** @return array{0: string, 1: string, 2: string}|null */
@@ -92,6 +115,7 @@ final class ImageOptimiser
             return null;
         }
 
+        $this->allowMemoryFor($size[0], $size[1]);
         $image = @imagecreatefromstring($bytes);
 
         if (! $image) {
@@ -114,6 +138,20 @@ final class ImageOptimiser
         }
 
         return [(string) ob_get_clean(), $mime, $mime === 'image/png' ? 'png' : 'jpg'];
+    }
+
+    /**
+     * PHP's bundled GD counts its pixels against memory_limit: a 48 megapixel photo needs about 200 MB,
+     * more than the usual 128 MB. Raise the limit for this job rather than fail.
+     */
+    private function allowMemoryFor(int $width, int $height): void
+    {
+        $limit = ini_get('memory_limit');
+        $needed = memory_get_usage() + $width * $height * 5 + 64 * 1024 * 1024;
+
+        if ($limit !== false && $limit !== '-1' && ini_parse_quantity($limit) < $needed) {
+            ini_set('memory_limit', (string) min($needed, 1024 * 1024 * 1024));
+        }
     }
 
     /** GD drops EXIF data, so turn the pixels the way the camera intended before re-saving. */

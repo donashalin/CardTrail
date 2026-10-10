@@ -8,7 +8,6 @@ use App\Receipts\ReceiptStore;
 use App\Receipts\ReceiptType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -35,7 +34,7 @@ class ReceiptInboxController extends Controller
         $files = $request->file('files');
         $source = $request->input('source') === 'camera' ? ReceiptSource::Camera : ReceiptSource::Bulk;
 
-        DB::transaction(function () use ($files, $request, $source, $store) {
+        $store->transaction(function () use ($files, $request, $source, $store) {
             foreach ($files as $file) {
                 $store->storeUpload($file, $request->user(), $source);
             }

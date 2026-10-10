@@ -3,10 +3,13 @@
 use App\Enums\ReceiptSource;
 use App\Enums\ReconciliationStatus;
 use App\Enums\TransactionStatus;
+use App\Jobs\ProcessReceiptImage;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Receipts\ImageOptimiser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -154,4 +157,52 @@ it('accepts a genuine HEIC file', function () {
     uploadTo(lineFor($this->sam), [new UploadedFile($path, 'IMG_0001.heic', null, null, true)])->assertSessionHasNoErrors();
 
     expect(Receipt::sole()->mime)->toBe('image/heic');
+});
+
+it('keeps the original photo when saving the smaller copy fails', function () {
+    Queue::fake();
+    uploadTo(lineFor($this->sam), [UploadedFile::fake()->image('wide.jpg', 3000, 1500)]);
+    $receipt = Receipt::sole();
+    $original = Storage::disk('receipts')->get($receipt->path);
+    Receipt::updating(fn () => throw new RuntimeException('Database went away'));
+
+    expect(fn () => (new ProcessReceiptImage($receipt))->handle(app(ImageOptimiser::class)))->toThrow(RuntimeException::class);
+
+    expect(Storage::disk('receipts')->get($receipt->fresh()->path))->toBe($original)
+        ->and(Storage::disk('receipts')->allFiles())->toHaveCount(1);
+});
+
+it('explains when a file is bigger than the server accepts', function () {
+    $path = tempnam(sys_get_temp_dir(), 'receipt');
+    file_put_contents($path, '%PDF-1.4');
+
+    uploadTo(lineFor($this->sam), [new UploadedFile($path, 'big.pdf', 'application/pdf', UPLOAD_ERR_INI_SIZE, true)])
+        ->assertSessionHasErrors(['files.0' => 'A file was bigger than the server accepts, or didn’t finish uploading. Try a smaller file, or ask IT to raise the upload limit.']);
+});
+
+it('explains when an upload is too big for the server altogether', function () {
+    $this->actingAs($this->sam)
+        ->from(route('transactions.show', $line = lineFor($this->sam)))
+        ->call('POST', route('transactions.receipts.store', $line), [], [], [], ['CONTENT_LENGTH' => PHP_INT_MAX])
+        ->assertRedirect(route('transactions.show', $line))
+        ->assertSessionHas('error', 'Those files are too big to upload together. Try fewer at a time.');
+});
+
+it('refuses deleting a receipt once the month is submitted', function () {
+    $line = lineFor($this->sam, ['purpose' => 'Hotel', 'status' => TransactionStatus::Done]);
+    $receipt = Receipt::factory()->attachedTo($line)->create();
+    $line->reconciliation->update(['status' => ReconciliationStatus::Submitted]);
+
+    $this->actingAs($this->sam)->delete(route('receipts.destroy', $receipt))->assertForbidden();
+
+    expect($receipt->fresh())->not->toBeNull();
+});
+
+it('serves a receipt whose name has backslashes in it', function () {
+    $receipt = Receipt::factory()->for($this->sam)->create(['original_name' => 'C:\Scans\fuel.pdf']);
+    Storage::disk('receipts')->put($receipt->path, '%PDF-1.4');
+
+    $this->actingAs($this->sam)->get(route('receipts.show', $receipt))
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'inline; filename="C:-Scans-fuel.pdf"');
 });

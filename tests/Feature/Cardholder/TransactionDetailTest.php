@@ -144,3 +144,12 @@ it('answers a background autosave with the new status instead of redirecting', f
 
     expect($line->fresh()->status)->toBe(TransactionStatus::Done);
 });
+
+it('keeps a line queried when the accountant adds to the thread', function () {
+    $line = lineFor($this->sam, ['status' => TransactionStatus::Queried, 'purpose' => 'Team lunch', 'no_receipt' => true, 'no_receipt_reason' => 'Lost']);
+    $line->reconciliation->update(['status' => ReconciliationStatus::Submitted]);
+
+    $this->actingAs($this->admin)->post(route('transactions.comments.store', $line), ['body' => 'Who attended?'])->assertRedirect();
+
+    expect($line->fresh()->status)->toBe(TransactionStatus::Queried);
+});
