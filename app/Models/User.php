@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, LogsActivity, Notifiable;
 
     /** In-memory defaults mirroring the DB column defaults, so new models behave the same before a re-read. */
     protected $attributes = [
@@ -81,5 +83,45 @@ class User extends Authenticatable
     public function scopeActive(Builder $query): void
     {
         $query->where('active', true);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('users')
+            ->logOnly(['name', 'email', 'is_admin', 'is_cardholder', 'use_microsoft', 'active'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+
+    /**
+     * Replace this user's card identifiers with the given rows.
+     * Rows with an id update that identifier (only if it belongs to this user); rows without one are created.
+     *
+     * @param  array<int, array{id?: ?int, last4?: ?string, cardholder_name?: ?string}>  $rows
+     */
+    public function syncCardIdentifiers(array $rows): void
+    {
+        $keep = [];
+
+        foreach ($rows as $row) {
+            $attributes = [
+                'last4' => $row['last4'] ?? null,
+                'cardholder_name' => $row['cardholder_name'] ?? null,
+            ];
+
+            $identifier = isset($row['id']) ? $this->cardIdentifiers()->find($row['id']) : null;
+
+            if ($identifier) {
+                $identifier->update($attributes);
+            } else {
+                $identifier = $this->cardIdentifiers()->create($attributes);
+            }
+
+            $keep[] = $identifier->id;
+        }
+
+        // Delete one by one so each removal is written to the activity log.
+        $this->cardIdentifiers()->whereNotIn('id', $keep)->get()->each->delete();
     }
 }
