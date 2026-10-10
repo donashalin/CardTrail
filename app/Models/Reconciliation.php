@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PeriodStatus;
 use App\Enums\ReconciliationStatus;
+use App\Enums\TransactionStatus;
 use App\Events\ReconciliationLinesAdded;
 use Database\Factories\ReconciliationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -66,5 +67,26 @@ class Reconciliation extends Model
         if ($this->period->status === PeriodStatus::Published) {
             ReconciliationLinesAdded::dispatch($this, $count);
         }
+    }
+
+    /**
+     * A submitted month whose lines are all approved is approved. Call inside a transaction holding this row's lock.
+     * Returns whether it was approved just now.
+     */
+    public function approveIfComplete(User $admin): bool
+    {
+        if ($this->status !== ReconciliationStatus::Submitted || $this->transactions()->where('status', '!=', TransactionStatus::Approved)->exists()) {
+            return false;
+        }
+
+        $this->update(['status' => ReconciliationStatus::Approved, 'approved_at' => now(), 'approved_by' => $admin->id]);
+
+        activity('reviews')
+            ->causedBy($admin)
+            ->performedOn($this)
+            ->event('reconciliation_approved')
+            ->log('Approved the month');
+
+        return true;
     }
 }

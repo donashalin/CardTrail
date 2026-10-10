@@ -63,6 +63,10 @@ final class TransactionAssigner
 
             Reconciliation::query()->whereIn('id', $sources)->whereDoesntHave('transactions')->delete();
 
+            // Moving out the last unapproved line completes a submitted month.
+            Reconciliation::query()->whereIn('id', $sources)->lockForUpdate()->get()
+                ->each(fn (Reconciliation $source) => $source->approveIfComplete($admin));
+
             if ($target && $moving->isNotEmpty()) {
                 $target->linesAdded($moving->count());
             }

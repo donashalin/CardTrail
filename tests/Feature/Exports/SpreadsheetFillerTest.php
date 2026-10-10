@@ -114,3 +114,27 @@ it('writes into a workbook’s mapped purpose column as plain text, leaving ever
         ->and($sheet->getCell('C3')->getValue())->toBe(12.5)
         ->and($sheet->getCell('E2')->getValue())->toBeNull();
 });
+
+it('fills a workbook whose formulas can’t be calculated here, leaving them for Excel', function () {
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->fromArray([
+        ['Date', 'Description', 'Amount', 'Linked'],
+        ['03/10/2026', 'DEPOT CAFE', 12.5, null],
+    ]);
+    $book->getActiveSheet()->setCellValue('D2', '=[budget.xlsx]Sheet1!A1');
+    $source = tempnam(sys_get_temp_dir(), 'book').'.xlsx';
+    (new Xlsx($book))->setPreCalculateFormulas(false)->save($source);
+
+    $import = Import::factory()->create([
+        'original_filename' => 'linked.xlsx',
+        'stored_path' => 'imports/linked.xlsx',
+        'column_mapping' => ['date' => 0, 'description' => 1, 'amount' => 2],
+    ]);
+    Storage::disk('local')->put($import->stored_path, file_get_contents($source));
+    $line = Transaction::factory()->for($import)->create(['row_number' => 2, 'purpose' => 'Supplier meeting']);
+
+    $out = tempnam(sys_get_temp_dir(), 'out').'.xlsx';
+    file_put_contents($out, app(SpreadsheetFiller::class)->fill($import, [$line]));
+
+    expect(IOFactory::load($out)->getSheet(0)->getCell('E2')->getValue())->toBe('Supplier meeting');
+});

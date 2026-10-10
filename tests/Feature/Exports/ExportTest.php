@@ -4,6 +4,7 @@ use App\Enums\ExportStatus;
 use App\Enums\ImportStatus;
 use App\Events\ExportFailed;
 use App\Events\ExportReady;
+use App\Exports\ExportBuilder;
 use App\Jobs\BuildExport;
 use App\Models\Export;
 use App\Models\Period;
@@ -172,4 +173,23 @@ it('deletes exports older than a week', function () {
 
     expect(Export::pluck('id')->all())->toBe([$recent->id]);
     Storage::disk('local')->assertMissing('exports/9/old.zip');
+});
+
+it('leaves no partial ZIP behind when a build fails', function () {
+    $cafe = lineFor($this->sam, ['row_number' => 2, 'purpose' => 'Supplier meeting'], $this->period);
+    receiptOn($cafe, 'pdf', 'cafe-pdf');
+    $gone = lineFor($this->sam, ['row_number' => 3, 'purpose' => 'Site visit'], $this->period);
+    Receipt::factory()->attachedTo($gone)->create(['path' => 'gone/missing.pdf']);
+    $export = Export::factory()->for($this->period)->create(['requested_by' => $this->admin->id]);
+    $before = glob(sys_get_temp_dir().'/export*') ?: [];
+
+    expect(fn () => app(ExportBuilder::class)->build($export))->toThrow(RuntimeException::class, 'Row3');
+
+    expect(glob(sys_get_temp_dir().'/export*') ?: [])->toBe($before);
+});
+
+it('gives the queue longer than an export may take before retrying it', function () {
+    $export = Export::factory()->make();
+
+    expect(config('queue.connections.database.retry_after'))->toBeGreaterThan((new BuildExport($export))->timeout);
 });

@@ -101,7 +101,11 @@ const options = { preserveScroll: true, preserveState: true, onStart: () => (bus
 const approve = () => props.selected && router.post(route('admin.lines.approve', props.selected.id), {}, options);
 
 const approveAll = () => {
-    if (confirm(`Approve all ${props.reconciliation.approvable} remaining completed lines for ${props.reconciliation.owner}?`)) {
+    const question = props.reconciliation.approvable
+        ? `Approve all ${props.reconciliation.approvable} remaining completed lines for ${props.reconciliation.owner}?`
+        : `Every line is approved. Approve ${props.reconciliation.owner}’s month?`;
+
+    if (confirm(question)) {
         router.post(route('admin.reconciliations.approve', props.reconciliation.id), {}, options);
     }
 };
@@ -142,7 +146,8 @@ const textareaClass =
                         <span v-if="!reconciliation.owner_active" class="text-red-600 dark:text-red-400"> · Inactive user</span>
                     </p>
                 </div>
-                <Button v-if="reconciliation.can_approve_all" :disabled="busy" @click="approveAll">Approve all remaining ({{ reconciliation.approvable }})</Button>
+                <Button v-if="reconciliation.can_approve_all" :disabled="busy" @click="approveAll">{{ reconciliation.approvable ? `Approve all remaining (${reconciliation.approvable})` : 'Approve month' }}
+                </Button>
             </header>
 
             <p v-if="reconciliation.status === 'in_progress'" class="rounded-md border bg-muted px-4 py-3 text-sm">

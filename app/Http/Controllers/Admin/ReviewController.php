@@ -35,8 +35,7 @@ class ReviewController extends Controller
                 'owner' => $reconciliation->user->name,
                 'owner_active' => $reconciliation->user->active,
                 'approvable' => $approvable,
-                'can_approve_all' => $approvable > 0
-                    && $reconciliation->status === ReconciliationStatus::Submitted
+                'can_approve_all' => $reconciliation->status === ReconciliationStatus::Submitted
                     && $reconciliation->period->status === PeriodStatus::Published,
             ],
             'lines' => $lines->map(fn (Transaction $line) => [

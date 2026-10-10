@@ -6,10 +6,10 @@ use App\Enums\ImportStatus;
 use App\Models\Export;
 use App\Models\Import;
 use App\Models\Receipt;
-use App\Models\Transaction;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 use ZipArchive;
 
 /** Builds an export's ZIP in today's layout: filled spreadsheet(s) plus receipts named by row. */
@@ -33,30 +33,35 @@ final class ExportBuilder
             ->get();
 
         $root = $export->user_id ? ReceiptFileNamer::clean("{$period->label} - {$export->user->name}").'/' : '';
+        $files = $this->receiptFiles($lines, $ordinals, $root);
         $zipPath = tempnam(sys_get_temp_dir(), 'export');
         $temporary = [];
         $zip = new ZipArchive;
 
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException('Couldn’t create the ZIP file.');
-        }
-
         try {
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new RuntimeException('Couldn’t create the ZIP file.');
+            }
+
             foreach ($imports as $import) {
                 $name = $this->spreadsheetName($import, $imports, $ordinals[$import->id]);
                 $zip->addFromString($root.$name, $this->filler->fill($import, $lines->where('import_id', $import->id)));
             }
 
-            foreach ($lines->whereNotNull('reconciliation_id') as $line) {
-                $folder = $root !== '' ? $root : ReceiptFileNamer::clean($line->reconciliation->user->name).'/';
-
-                foreach ($line->receipts->values() as $index => $receipt) {
-                    $name = ReceiptFileNamer::name($ordinals[$line->import_id], $line->row_number, $index + 1, pathinfo($receipt->path, PATHINFO_EXTENSION));
-                    $zip->addFile($this->localCopy($receipt, $line, $temporary), $folder.$name);
-                }
+            foreach ($files as $entry => $receipt) {
+                $zip->addFile($this->localCopy($receipt, $temporary), $entry);
             }
 
-            $zip->close();
+            if (! $zip->close()) {
+                throw new RuntimeException('Couldn’t finish writing the ZIP file.');
+            }
+        } catch (Throwable $e) {
+            // An abandoned ZipArchive writes what it has on destruction: discard it so no partial copy of receipts is left behind.
+            @$zip->unchangeAll();
+            @$zip->close();
+            @unlink($zipPath);
+
+            throw $e;
         } finally {
             foreach ($temporary as $file) {
                 @unlink($file);
@@ -75,15 +80,41 @@ final class ExportBuilder
         return $shared && $ordinal > 1 ? "Import{$ordinal} - {$name}" : $name;
     }
 
-    /** A local path ZipArchive can read when it closes. Files on remote disks are copied to a temp file first. */
-    private function localCopy(Receipt $receipt, Transaction $line, array &$temporary): string
+    /**
+     * Every receipt's place in the ZIP, checked up front so a missing file fails the export before anything is written.
+     *
+     * @return array<string, Receipt> entry name => receipt
+     */
+    private function receiptFiles(Collection $lines, Collection $ordinals, string $root): array
     {
-        $disk = Storage::disk($receipt->disk);
+        $files = [];
+        $missing = [];
 
-        if (! $disk->exists($receipt->path)) {
-            throw new RuntimeException("The receipt for row {$line->row_number} ({$line->reconciliation->user->name}) is missing from storage.");
+        foreach ($lines->whereNotNull('reconciliation_id') as $line) {
+            $folder = $root !== '' ? $root : ReceiptFileNamer::clean($line->reconciliation->user->name).'/';
+
+            foreach ($line->receipts->values() as $index => $receipt) {
+                $name = ReceiptFileNamer::name($ordinals[$line->import_id], $line->row_number, $index + 1, pathinfo($receipt->path, PATHINFO_EXTENSION));
+
+                if (! Storage::disk($receipt->disk)->exists($receipt->path)) {
+                    $missing[] = "row {$line->row_number} ({$name}, {$line->reconciliation->user->name})";
+                }
+
+                $files[$folder.$name] = $receipt;
+            }
         }
 
+        if ($missing !== []) {
+            throw new RuntimeException('These receipts are missing from storage: '.implode('; ', $missing).'.');
+        }
+
+        return $files;
+    }
+
+    /** A local path ZipArchive can read when it closes. Files on remote disks are copied to a temp file first. */
+    private function localCopy(Receipt $receipt, array &$temporary): string
+    {
+        $disk = Storage::disk($receipt->disk);
         $path = $disk->path($receipt->path);
 
         if (is_file($path)) {

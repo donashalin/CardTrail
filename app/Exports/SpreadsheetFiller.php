@@ -44,8 +44,9 @@ final class SpreadsheetFiller
 
         $writer = match (true) {
             $csv => (new Csv($book))->setDelimiter(SpreadsheetReader::delimiter($path))->setEnclosureRequired(false)->setUseBOM(true),
-            $extension === 'xls' => new Xls($book),
-            default => new Xlsx($book),
+            // Excel recalculates on open; recalculating here fails on links to other workbooks.
+            $extension === 'xls' => (new Xls($book))->setPreCalculateFormulas(false),
+            default => (new Xlsx($book))->setPreCalculateFormulas(false),
         };
 
         $temp = tempnam(sys_get_temp_dir(), 'fill');

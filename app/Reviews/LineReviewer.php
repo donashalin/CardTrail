@@ -29,7 +29,7 @@ final class LineReviewer
             }
 
             $this->markApproved($line, $admin);
-            $this->approveIfComplete($reconciliation, $admin);
+            $reconciliation->approveIfComplete($admin);
 
             activity('reviews')
                 ->causedBy($admin)
@@ -55,7 +55,7 @@ final class LineReviewer
                 $this->markApproved($line, $admin);
             }
 
-            $this->approveIfComplete($reconciliation, $admin);
+            $reconciliation->approveIfComplete($admin);
 
             activity('reviews')
                 ->causedBy($admin)
@@ -135,20 +135,5 @@ final class LineReviewer
     private function markApproved(Transaction $line, User $admin): void
     {
         $line->update(['status' => TransactionStatus::Approved, 'approved_at' => now(), 'approved_by' => $admin->id]);
-    }
-
-    private function approveIfComplete(Reconciliation $reconciliation, User $admin): void
-    {
-        if ($reconciliation->transactions()->where('status', '!=', TransactionStatus::Approved)->exists()) {
-            return;
-        }
-
-        $reconciliation->update(['status' => ReconciliationStatus::Approved, 'approved_at' => now(), 'approved_by' => $admin->id]);
-
-        activity('reviews')
-            ->causedBy($admin)
-            ->performedOn($reconciliation)
-            ->event('reconciliation_approved')
-            ->log('Approved the month');
     }
 }

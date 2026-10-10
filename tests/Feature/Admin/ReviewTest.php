@@ -5,6 +5,7 @@ use App\Enums\TransactionStatus;
 use App\Models\Comment;
 use App\Models\Receipt;
 use App\Models\User;
+use App\Periods\TransactionAssigner;
 
 beforeEach(function () {
     $this->sam = User::factory()->create(['name' => 'Sam']);
@@ -95,4 +96,25 @@ it('explains why an action is refused', function () {
 
     $this->actingAs($this->admin)->post(route('admin.lines.approve', $line))
         ->assertSessionHas('error', 'Lines can be approved once the cardholder has submitted.');
+});
+
+it('approves a submitted month once its last unapproved line is moved to someone else', function () {
+    [$approved, $done] = submittedMonth(['status' => TransactionStatus::Approved], []);
+
+    app(TransactionAssigner::class)->assign($done->period, [$done->id], User::factory()->create(), $this->admin);
+
+    expect($approved->reconciliation->fresh())
+        ->status->toBe(ReconciliationStatus::Approved)
+        ->approved_by->toBe($this->admin->id);
+});
+
+it('offers to approve a submitted month that has nothing left to approve line by line', function () {
+    [$line] = submittedMonth(['status' => TransactionStatus::Approved]);
+
+    $this->actingAs($this->admin)->get(route('admin.reconciliations.review', $line->reconciliation))
+        ->assertInertia(fn ($page) => $page->where('reconciliation.can_approve_all', true)->where('reconciliation.approvable', 0));
+
+    $this->actingAs($this->admin)->post(route('admin.reconciliations.approve', $line->reconciliation))->assertSessionHas('success');
+
+    expect($line->reconciliation->fresh()->status)->toBe(ReconciliationStatus::Approved);
 });
