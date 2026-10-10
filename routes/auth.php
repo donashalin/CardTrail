@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\FakeIdentityController;
+use App\Http\Controllers\Auth\IdentityController;
 use App\Http\Controllers\Auth\LoginEmailController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -34,6 +36,18 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::get('auth/identity/redirect', [IdentityController::class, 'redirect'])
+        ->name('identity.redirect');
+
+    Route::get('auth/identity/callback', [IdentityController::class, 'callback'])
+        ->middleware('throttle:20,1')
+        ->name('identity.callback');
+
+    if (app()->environment('local', 'testing')) {
+        Route::get('auth/fake-identity', [FakeIdentityController::class, 'show'])->name('identity.fake');
+        Route::post('auth/fake-identity', [FakeIdentityController::class, 'store'])->name('identity.fake.store');
+    }
 });
 
 Route::middleware('auth')->group(function () {
