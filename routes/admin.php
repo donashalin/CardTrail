@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
 use App\Http\Controllers\Admin\LineApprovalController;
 use App\Http\Controllers\Admin\LineQueryController;
+use App\Http\Controllers\Admin\NudgeController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\PeriodLinesController;
 use App\Http\Controllers\Admin\PublishPeriodController;
@@ -53,4 +54,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::post('periods/{period}/exports', [ExportController::class, 'store'])->middleware('throttle:20,1')->name('exports.store');
     Route::get('exports/{export}', [ExportController::class, 'show'])->name('exports.show');
+
+    Route::post('reconciliations/{reconciliation}/nudge', NudgeController::class)->middleware('throttle:20,1')->name('reconciliations.nudge');
 });

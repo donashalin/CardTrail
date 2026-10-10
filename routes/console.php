@@ -16,3 +16,4 @@ Artisan::command('exports:prune', function () {
 })->purpose('Delete exports older than 7 days');
 
 Schedule::command('exports:prune')->daily();
+Schedule::command('reminders:send')->dailyAt('08:00');

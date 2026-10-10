@@ -103,6 +103,12 @@ watch(
 );
 onBeforeUnmount(() => clearInterval(poll));
 
+const nudge = (row: DashboardReconciliation) => {
+    if (window.confirm(`Send ${row.user.name} a reminder to finish ${props.period.label}?`)) {
+        router.post(route('admin.reconciliations.nudge', row.id), {}, { preserveScroll: true });
+    }
+};
+
 const statusLabel = (row: DashboardReconciliation) => {
     if (row.status === 'submitted') return 'Submitted';
     if (row.status === 'approved') return 'Approved';
@@ -165,6 +171,9 @@ const statusLabel = (row: DashboardReconciliation) => {
                         <div class="flex flex-wrap items-center gap-2 text-sm">
                             <span v-if="row.overdue" class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-950 dark:text-red-200">Overdue</span>
                             <span>{{ statusLabel(row) }}</span>
+                            <Button v-if="period.status === 'published' && row.status === 'in_progress' && row.user.active" size="sm" variant="ghost" @click="nudge(row)">
+                                Nudge
+                            </Button>
                             <Button v-if="period.status !== 'draft'" size="sm" :variant="row.status === 'submitted' ? 'default' : 'outline'" as-child>
                                 <Link :href="route('admin.reconciliations.review', row.id)">Review</Link>
                             </Button>
