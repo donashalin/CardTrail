@@ -62,8 +62,9 @@ class NewPasswordController extends Controller
             return to_route('login')->with('status', __($status));
         }
 
+        // Same message for unknown emails and bad tokens, so the response never reveals whether an account exists.
         throw ValidationException::withMessages([
-            'email' => [__($status)],
+            'email' => [__('passwords.token')],
         ]);
     }
 }

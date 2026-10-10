@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
 
 it('seeds fake demo accounts', function () {
@@ -17,4 +18,15 @@ it('can be run twice without duplicating accounts', function () {
     $this->seed(DemoSeeder::class);
 
     expect(User::count())->toBe(4);
+});
+
+it('never seeds demo accounts outside local and testing', function () {
+    app()->instance('env', 'production');
+
+    // Call the seeder directly: db:seed would stop to ask for confirmation in production.
+    app(DatabaseSeeder::class)->run();
+
+    app()->instance('env', 'testing');
+
+    expect(User::count())->toBe(0);
 });

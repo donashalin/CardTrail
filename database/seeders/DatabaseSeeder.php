@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(DemoSeeder::class);
+        // Demo accounts have a known password, so they must never reach a real server.
+        if (app()->environment('local', 'testing')) {
+            $this->call(DemoSeeder::class);
+        }
     }
 }

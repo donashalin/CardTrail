@@ -37,9 +37,7 @@ class AcceptInvitationController extends Controller
         $user = User::where('email', $request->input('email'))->first();
 
         if (! $user || ! $user->active || $user->use_microsoft) {
-            throw ValidationException::withMessages([
-                'email' => 'This invitation is no longer valid. Ask an admin to send a new one.',
-            ]);
+            $this->invalid();
         }
 
         $status = Password::broker('invites')->reset(
@@ -54,11 +52,17 @@ class AcceptInvitationController extends Controller
         );
 
         if ($status !== Password::PasswordReset) {
-            throw ValidationException::withMessages([
-                'email' => 'This invitation link is invalid or has expired. Ask an admin to send a new one.',
-            ]);
+            $this->invalid();
         }
 
         return to_route('login')->with('status', 'Your password has been set. You can now sign in.');
+    }
+
+    /** One message for every failure, so the response never reveals whether an account exists. */
+    private function invalid(): never
+    {
+        throw ValidationException::withMessages([
+            'email' => 'This invitation link is invalid or has expired. Ask an admin to send a new one.',
+        ]);
     }
 }

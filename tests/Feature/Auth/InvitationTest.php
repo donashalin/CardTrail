@@ -135,3 +135,33 @@ it('rejects invitations for inactive or Microsoft 365 users', function (string $
         'password_confirmation' => 'a-strong-password',
     ])->assertSessionHasErrors('email');
 })->with(['inactive', 'microsoft']);
+
+it('does not accept a forgot-password token as an invitation', function () {
+    $sam = User::factory()->create(['email' => 'sam@cardtrail.test']);
+    $resetToken = Password::broker()->createToken($sam);
+
+    $this->travel(3)->hours();
+
+    $this->post(route('invite.store'), [
+        'token' => $resetToken,
+        'email' => 'sam@cardtrail.test',
+        'password' => 'a-strong-password',
+        'password_confirmation' => 'a-strong-password',
+    ])->assertSessionHasErrors('email');
+
+    $this->post('/login', ['email' => 'sam@cardtrail.test', 'password' => 'a-strong-password']);
+    $this->assertGuest();
+});
+
+it('gives the same error for unknown emails and bad tokens so accounts are not revealed', function () {
+    User::factory()->create(['email' => 'sam@cardtrail.test', 'password' => null]);
+
+    $attempt = fn (string $email) => $this->post(route('invite.store'), [
+        'token' => 'junk',
+        'email' => $email,
+        'password' => 'a-strong-password',
+        'password_confirmation' => 'a-strong-password',
+    ])->baseResponse->getSession()->get('errors')->first('email');
+
+    expect($attempt('nobody@cardtrail.test'))->toBe($attempt('sam@cardtrail.test'));
+});

@@ -100,10 +100,10 @@ return [
             'throttle' => 60,
         ],
 
-        // Admin invitations reuse the reset-token table but last a week.
+        // Admin invitations last a week, so they get their own table: a reset token must never work as an invite.
         'invites' => [
             'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'table' => 'invitation_tokens',
             'expire' => 10080,
             'throttle' => 0,
         ],

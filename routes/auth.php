@@ -36,6 +36,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:10,1')
         ->name('password.store');
 
     Route::get('auth/identity/redirect', [IdentityController::class, 'redirect'])
