@@ -45,6 +45,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'push' => [
+                'vapid_public_key' => config('webpush.vapid.public_key'),
+            ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

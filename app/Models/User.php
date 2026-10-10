@@ -13,13 +13,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, LogsActivity, Notifiable;
+    use HasFactory, HasPushSubscriptions, LogsActivity, Notifiable;
 
     /** In-memory defaults mirroring the DB column defaults, so new models behave the same before a re-read. */
     protected $attributes = [

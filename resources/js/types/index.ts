@@ -20,6 +20,7 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    push: { vapid_public_key: string | null };
     ziggy: {
         location: string;
         url: string;
