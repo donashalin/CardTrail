@@ -16,6 +16,14 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    /** In-memory defaults mirroring the DB column defaults, so new models behave the same before a re-read. */
+    protected $attributes = [
+        'use_microsoft' => false,
+        'is_admin' => false,
+        'is_cardholder' => true,
+        'active' => true,
+    ];
+
     /**
      * The attributes that are mass assignable.
      *

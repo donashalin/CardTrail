@@ -57,3 +57,12 @@ it('scopes to active users', function () {
 
     expect(User::active()->pluck('email')->all())->toBe(['on@cardtrail.test']);
 });
+
+it('mirrors the database defaults in memory before the model is re-read', function () {
+    $user = User::factory()->create();
+
+    expect($user->active)->toBeTrue()
+        ->and($user->is_cardholder)->toBeTrue()
+        ->and($user->is_admin)->toBeFalse()
+        ->and($user->use_microsoft)->toBeFalse();
+});

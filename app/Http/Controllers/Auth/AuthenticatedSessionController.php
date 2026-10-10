@@ -14,13 +14,31 @@ use Inertia\Response;
 class AuthenticatedSessionController extends Controller
 {
     /**
-     * Show the login page.
+     * Show the email step of the login page.
      */
     public function create(Request $request): Response
     {
         return Inertia::render('auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
+            'email' => $request->session()->get('login.email'),
             'status' => $request->session()->get('status'),
+            'error' => $request->session()->get('error'),
+        ]);
+    }
+
+    /**
+     * Show the password step for the email chosen at the email step.
+     */
+    public function createPassword(Request $request): Response|RedirectResponse
+    {
+        $email = $request->session()->get('login.email');
+
+        if (! $email) {
+            return to_route('login');
+        }
+
+        return Inertia::render('auth/LoginPassword', [
+            'email' => $email,
+            'canResetPassword' => Route::has('password.request'),
         ]);
     }
 
@@ -32,6 +50,13 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->forget('login.email');
+
+        activity('auth')
+            ->causedBy($request->user())
+            ->performedOn($request->user())
+            ->event('login')
+            ->log('Signed in with password');
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
