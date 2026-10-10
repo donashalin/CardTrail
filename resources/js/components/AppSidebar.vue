@@ -4,7 +4,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { CalendarRange, Inbox, LayoutGrid, Users } from 'lucide-vue-next';
+import { CalendarRange, Inbox, LayoutGrid, Mail, SlidersHorizontal, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -17,6 +17,8 @@ const mainNavItems = computed<NavItem[]>(() => [
         ? [
               { title: 'Periods', href: '/admin/periods', icon: CalendarRange },
               { title: 'Manage users', href: '/admin/users', icon: Users },
+              { title: 'Inbound email', href: '/admin/inbound', icon: Mail },
+              { title: 'Admin settings', href: '/admin/settings', icon: SlidersHorizontal },
           ]
         : []),
 ]);

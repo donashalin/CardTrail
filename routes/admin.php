@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Admin\ClosePeriodController;
+use App\Http\Controllers\Admin\ColumnMappingController;
 use App\Http\Controllers\Admin\ExportController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
+use App\Http\Controllers\Admin\InboundMessageController;
 use App\Http\Controllers\Admin\LineApprovalController;
 use App\Http\Controllers\Admin\LineQueryController;
 use App\Http\Controllers\Admin\NudgeController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\Admin\PeriodLinesController;
 use App\Http\Controllers\Admin\PublishPeriodController;
 use App\Http\Controllers\Admin\ReconciliationApprovalController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use Illuminate\Support\Facades\Route;
@@ -56,4 +59,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('exports/{export}', [ExportController::class, 'show'])->name('exports.show');
 
     Route::post('reconciliations/{reconciliation}/nudge', NudgeController::class)->middleware('throttle:20,1')->name('reconciliations.nudge');
+
+    Route::get('inbound', [InboundMessageController::class, 'index'])->name('inbound.index');
+    Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::put('column-mappings/{mapping}', [ColumnMappingController::class, 'update'])->name('column-mappings.update');
+    Route::delete('column-mappings/{mapping}', [ColumnMappingController::class, 'destroy'])->name('column-mappings.destroy');
 });

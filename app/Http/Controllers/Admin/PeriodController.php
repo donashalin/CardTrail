@@ -6,6 +6,7 @@ use App\Enums\PeriodStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\PeriodRequest;
 use App\Models\Period;
+use App\Models\Setting;
 use App\Periods\PeriodDashboard;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -38,7 +39,7 @@ class PeriodController extends Controller
                 // Reconciliation is usually for last month, due mid-month.
                 'month' => today()->subMonthNoOverflow()->format('Y-m'),
                 'due_date' => today()->day(15)->format('Y-m-d'),
-                'reminder_offsets' => '3, 0',
+                'reminder_offsets' => implode(', ', Setting::reminderOffsets()),
             ],
         ]);
     }
