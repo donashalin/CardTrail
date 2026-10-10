@@ -31,6 +31,8 @@ class Transaction extends Model
         'no_receipt',
         'no_receipt_reason',
         'status',
+        'approved_at',
+        'approved_by',
     ];
 
     protected $attributes = [
