@@ -1,0 +1,30 @@
+From: Sam Cardholder <sam@cardtrail.test>
+To: receipts@cardtrail.test
+Subject: Depot cafe receipt
+Date: Sat, 03 Oct 2026 12:30:00 +0100
+Message-ID: <demo-receipt-1@cardtrail.test>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="demo"
+
+--demo
+Content-Type: text/plain
+
+Invented demo email for testing CardTrail email-in.
+--demo
+Content-Type: application/pdf; name="depot-cafe.pdf"
+Content-Disposition: attachment; filename="depot-cafe.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUg
+ODQyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4g
+Pj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAxMTIgPj4Kc3RyZWFtCkJUIC9GMSAyMCBU
+ZiA3MiA3NjAgVGQgKEludmVudGVkIGRlbW8gcmVjZWlwdCkgVGogMCAtMzAgVGQgL0YxIDE0IFRm
+IChEZXBvdCBDYWZlIC0gR0JQIDEyLjUwIC0gMDMvMTAvMjAyNikgVGogRVQKZW5kc3RyZWFtCmVu
+ZG9iago1IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hl
+bHZldGljYSA+PgplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5
+IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAw
+MjQxIDAwMDAwIG4gCjAwMDAwMDA0MDQgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290
+IDEgMCBSID4+CnN0YXJ0eHJlZgo0NzQKJSVFT0YK
+--demo--

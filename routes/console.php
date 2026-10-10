@@ -17,3 +17,4 @@ Artisan::command('exports:prune', function () {
 
 Schedule::command('exports:prune')->daily();
 Schedule::command('reminders:send')->dailyAt('08:00');
+Schedule::command('receipts:ingest')->everyFiveMinutes()->withoutOverlapping()->when(fn () => config('cardtrail.inbound.schedule'));
