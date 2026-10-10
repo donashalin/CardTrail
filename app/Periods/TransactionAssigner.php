@@ -4,7 +4,9 @@ namespace App\Periods;
 
 use App\Enums\PeriodStatus;
 use App\Enums\TransactionStatus;
+use App\Models\Comment;
 use App\Models\Period;
+use App\Models\Receipt;
 use App\Models\Reconciliation;
 use App\Models\Transaction;
 use App\Models\User;
@@ -44,6 +46,10 @@ final class TransactionAssigner
             $target = $to ? Reconciliation::firstOrCreate(['period_id' => $period->id, 'user_id' => $to->id]) : null;
             $moving = $lines->reject(fn (Transaction $line) => $line->reconciliation_id === $target?->id);
             $sources = $moving->pluck('reconciliation_id')->filter()->unique();
+
+            // Receipts belong to whoever uploaded them, and a query thread is about their work: neither travels with the line.
+            Receipt::query()->whereIn('transaction_id', $moving->pluck('id'))->update(['transaction_id' => null]);
+            Comment::query()->whereIn('transaction_id', $moving->pluck('id'))->delete();
 
             foreach ($moving as $line) {
                 $line->update([

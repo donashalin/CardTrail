@@ -4,6 +4,7 @@ use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\ReceiptInboxController;
 use App\Http\Controllers\ReceiptMatchController;
 use App\Http\Controllers\ReconciliationController;
+use App\Http\Controllers\SubmitReconciliationController;
 use App\Http\Controllers\TransactionCommentController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransactionReceiptController;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 // Cardholder screens. Policies decide what each person may see; these routes only require sign-in.
 Route::middleware('auth')->group(function () {
     Route::get('reconciliations/{reconciliation}', [ReconciliationController::class, 'show'])->name('reconciliations.show');
+    Route::post('reconciliations/{reconciliation}/submit', SubmitReconciliationController::class)->name('reconciliations.submit');
 
     Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
     Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');

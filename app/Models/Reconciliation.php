@@ -47,16 +47,21 @@ class Reconciliation extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    /** New lines arrived: anything already submitted or approved needs looking at again. */
+    /** New lines arrived: anything already submitted or approved needs looking at again. Call inside a transaction. */
     public function linesAdded(int $count): void
     {
-        if (in_array($this->status, [ReconciliationStatus::Submitted, ReconciliationStatus::Approved], true)) {
-            $this->update([
+        // Locked so a submit happening at the same moment can't slip past the reopen.
+        $current = self::query()->whereKey($this->id)->lockForUpdate()->firstOrFail();
+
+        if (in_array($current->status, [ReconciliationStatus::Submitted, ReconciliationStatus::Approved], true)) {
+            $current->update([
                 'status' => ReconciliationStatus::InProgress,
                 'approved_at' => null,
                 'approved_by' => null,
             ]);
         }
+
+        $this->setRawAttributes($current->getAttributes(), true);
 
         if ($this->period->status === PeriodStatus::Published) {
             ReconciliationLinesAdded::dispatch($this, $count);
