@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\PeriodStatus;
 use App\Enums\ReconciliationStatus;
+use App\Events\ReconciliationLinesAdded;
 use Database\Factories\ReconciliationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,5 +45,21 @@ class Reconciliation extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /** New lines arrived: anything already submitted or approved needs looking at again. */
+    public function linesAdded(int $count): void
+    {
+        if (in_array($this->status, [ReconciliationStatus::Submitted, ReconciliationStatus::Approved], true)) {
+            $this->update([
+                'status' => ReconciliationStatus::InProgress,
+                'approved_at' => null,
+                'approved_by' => null,
+            ]);
+        }
+
+        if ($this->period->status === PeriodStatus::Published) {
+            ReconciliationLinesAdded::dispatch($this, $count);
+        }
     }
 }
