@@ -8,6 +8,7 @@ use PhpOffice\PhpSpreadsheet\Reader\Csv;
 use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Reader\Xls;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Throwable;
 
 final class SpreadsheetReader
@@ -24,18 +25,12 @@ final class SpreadsheetReader
     public function read(string $absolutePath, string $originalName): array
     {
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-        $reader = match ($extension) {
-            'csv', 'txt' => $this->csvReader($absolutePath),
-            'xlsx' => new Xlsx,
-            'xls' => new Xls,
-            default => throw new UnreadableSpreadsheet('Upload a CSV or Excel file (.csv, .xlsx or .xls).'),
-        };
+        $reader = $this->readerFor($extension, $absolutePath);
 
         $reader->setReadDataOnly(true);
         $this->guardSize($reader, $absolutePath);
 
-        $book = $this->load($reader, $absolutePath, $extension);
+        $book = $this->load($reader, $absolutePath);
         $sheet = $book->getSheet(0);
 
         if ($sheet->getHighestDataRow() > self::MAX_ROWS + 1) {
@@ -57,6 +52,47 @@ final class SpreadsheetReader
         $book->disconnectWorksheets();
 
         return $rows;
+    }
+
+    /**
+     * The whole workbook, formatting included, for writing purposes back into a copy (exports).
+     * Rows keep the same numbers as read() gives them.
+     *
+     * @throws UnreadableSpreadsheet
+     */
+    public function workbook(string $absolutePath, string $originalName): Spreadsheet
+    {
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+        return $this->load($this->readerFor($extension, $absolutePath), $absolutePath);
+    }
+
+    /**
+     * PhpSpreadsheet's own guess can pick a space when a title line sits above the headers,
+     * so choose between the separators exports really use by counting them in the first lines.
+     */
+    public static function delimiter(string $path): string
+    {
+        $sample = (string) file_get_contents($path, length: 16384);
+        $counts = [];
+
+        foreach ([',', ';', "\t", '|'] as $candidate) {
+            $counts[$candidate] = substr_count($sample, $candidate);
+        }
+
+        arsort($counts);
+
+        return reset($counts) > 0 ? array_key_first($counts) : ',';
+    }
+
+    private function readerFor(string $extension, string $path): Csv|Xlsx|Xls
+    {
+        return match ($extension) {
+            'csv', 'txt' => $this->csvReader($path),
+            'xlsx' => new Xlsx,
+            'xls' => new Xls,
+            default => throw new UnreadableSpreadsheet('Upload a CSV or Excel file (.csv, .xlsx or .xls).'),
+        };
     }
 
     /** Count rows without loading the cells, so a huge file is refused instead of exhausting memory. */
@@ -83,25 +119,7 @@ final class SpreadsheetReader
         return $reader;
     }
 
-    /**
-     * PhpSpreadsheet's own guess can pick a space when a title line sits above the headers,
-     * so choose between the separators exports really use by counting them in the first lines.
-     */
-    private static function delimiter(string $path): string
-    {
-        $sample = (string) file_get_contents($path, length: 16384);
-        $counts = [];
-
-        foreach ([',', ';', "\t", '|'] as $candidate) {
-            $counts[$candidate] = substr_count($sample, $candidate);
-        }
-
-        arsort($counts);
-
-        return reset($counts) > 0 ? array_key_first($counts) : ',';
-    }
-
-    private function load(IReader $reader, string $path, string $extension)
+    private function load(IReader $reader, string $path): Spreadsheet
     {
         // CSV cells stay as text (so "0012" keeps its zeros); our own parsers read numbers and dates.
         $previousBinder = Cell::getValueBinder();
