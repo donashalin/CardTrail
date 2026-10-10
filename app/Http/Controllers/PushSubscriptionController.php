@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
@@ -12,7 +13,15 @@ class PushSubscriptionController extends Controller
     public function store(Request $request): Response
     {
         $data = $request->validate([
-            'endpoint' => ['required', 'string', 'url', 'starts_with:https://', 'max:1024'],
+            'endpoint' => ['required', 'string', 'url', 'starts_with:https://', 'max:1024', function (string $attribute, mixed $value, Closure $fail) {
+                // The server posts to this address, so only the browsers' own push services are allowed.
+                $host = strtolower((string) parse_url((string) $value, PHP_URL_HOST));
+                $allowed = collect(config('cardtrail.push_hosts'))->contains(fn (string $suffix) => $host === ltrim($suffix, '.') || str_ends_with($host, $suffix));
+
+                if (! $allowed) {
+                    $fail('That isn’t a recognised push notification service.');
+                }
+            }],
             'keys.p256dh' => ['required', 'string', 'max:255'],
             'keys.auth' => ['required', 'string', 'max:255'],
             'content_encoding' => ['nullable', Rule::in(['aesgcm', 'aes128gcm'])],

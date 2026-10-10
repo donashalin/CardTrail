@@ -128,3 +128,30 @@ it('ships a demo email that the eml driver accepts', function () {
 
     expect(InboundMessage::sole()->outcome)->toBe(InboundOutcome::Accepted);
 });
+
+it('skips images embedded in the email body, such as signature logos, but keeps attached photos', function () {
+    $pdf = chunk_split(base64_encode(pdfBytes()));
+    $png = chunk_split(base64_encode((function () {
+        $image = imagecreatetruecolor(4, 4);
+        ob_start();
+        imagepng($image);
+
+        return ob_get_clean();
+    })()));
+    $jpg = chunk_split(base64_encode(jpegBytes()));
+    $raw = "From: sam@cardtrail.test\r\nTo: receipts@cardtrail.test\r\nSubject: Taxi\r\nMessage-ID: <outlook@mail.example.test>\r\nMIME-Version: 1.0\r\n"
+        ."Content-Type: multipart/mixed; boundary=\"outer\"\r\n\r\n"
+        ."--outer\r\nContent-Type: multipart/related; boundary=\"rel\"\r\n\r\n"
+        ."--rel\r\nContent-Type: text/html\r\n\r\n<p>Receipt attached</p><img src=\"cid:image001.png@01DB\">\r\n"
+        ."--rel\r\nContent-Type: image/png; name=\"image001.png\"\r\nContent-Disposition: inline; filename=\"image001.png\"\r\nContent-ID: <image001.png@01DB>\r\nContent-Transfer-Encoding: base64\r\n\r\n{$png}\r\n"
+        ."--rel--\r\n"
+        ."--outer\r\nContent-Type: application/pdf; name=\"taxi.pdf\"\r\nContent-Disposition: attachment; filename=\"taxi.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\n{$pdf}\r\n"
+        ."--outer\r\nContent-Type: image/jpeg; name=\"IMG_0042.jpg\"\r\nContent-Disposition: inline; filename=\"IMG_0042.jpg\"\r\nContent-Transfer-Encoding: base64\r\n\r\n{$jpg}\r\n"
+        ."--outer--\r\n";
+    file_put_contents($this->dir.'/outlook.eml', $raw);
+
+    $this->artisan('receipts:ingest', ['path' => $this->dir])->assertSuccessful();
+
+    expect(Receipt::pluck('original_name')->sort()->values()->all())->toBe(['IMG_0042.jpg', 'taxi.pdf'])
+        ->and(InboundMessage::sole())->attachment_count->toBe(2)->accepted_count->toBe(2);
+});

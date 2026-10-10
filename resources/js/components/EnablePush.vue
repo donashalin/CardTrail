@@ -26,11 +26,21 @@ const remembered = () => {
     }
 };
 
+const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!page.props.push.vapid_public_key;
+
 onMounted(() => {
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!page.props.push.vapid_public_key;
+    if (!supported()) {
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        resync();
+
+        return;
+    }
 
     // iPhones only allow web push from an app added to the Home Screen.
-    visible.value = supported && Notification.permission === 'default' && (standalone() || !isIos()) && !remembered();
+    visible.value = Notification.permission === 'default' && (standalone() || !isIos()) && !remembered();
 });
 
 const dismiss = () => {
@@ -49,6 +59,51 @@ const keyBytes = (base64: string) => {
     return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 };
 
+/** Subscribe this device (or reuse its existing subscription) and tell the server it belongs to whoever is signed in. */
+const subscribeAndSave = async () => {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription =
+        (await registration.pushManager.getSubscription()) ??
+        (await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: keyBytes(page.props.push.vapid_public_key as string),
+        }));
+    const json = subscription.toJSON();
+    const encodings = (PushManager as unknown as { supportedContentEncodings?: string[] }).supportedContentEncodings ?? [];
+
+    await axios.post(route('push-subscriptions.store'), {
+        endpoint: json.endpoint,
+        keys: json.keys,
+        content_encoding: encodings.includes('aes128gcm') || encodings.length === 0 ? 'aes128gcm' : 'aesgcm',
+    });
+};
+
+/**
+ * Permission was given earlier: make sure the server still has this device (an earlier save may have failed,
+ * or the browser may have renewed it) and that pushes go to the person signed in now. Once per browser session.
+ */
+const resync = () => {
+    const key = `cardtrail.push-synced.${page.props.auth.user.id}`;
+
+    try {
+        if (sessionStorage.getItem(key) === '1') return;
+    } catch {
+        // Private browsing: just sync again.
+    }
+
+    subscribeAndSave()
+        .then(() => {
+            try {
+                sessionStorage.setItem(key, '1');
+            } catch {
+                // Ignore.
+            }
+        })
+        .catch(() => {
+            // Try again on the next visit; email still works meanwhile.
+        });
+};
+
 const enable = async () => {
     working.value = true;
     problem.value = null;
@@ -60,20 +115,7 @@ const enable = async () => {
             return;
         }
 
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: keyBytes(page.props.push.vapid_public_key as string),
-        });
-        const json = subscription.toJSON();
-        const encodings = (PushManager as unknown as { supportedContentEncodings?: string[] }).supportedContentEncodings ?? [];
-
-        await axios.post(route('push-subscriptions.store'), {
-            endpoint: json.endpoint,
-            keys: json.keys,
-            content_encoding: encodings.includes('aes128gcm') || encodings.length === 0 ? 'aes128gcm' : 'aesgcm',
-        });
-
+        await subscribeAndSave();
         visible.value = false;
     } catch {
         problem.value = 'Couldn’t turn on notifications on this device. You’ll still get emails.';

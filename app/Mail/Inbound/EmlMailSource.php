@@ -45,8 +45,19 @@ final class EmlMailSource implements InboundMailSource
         $sent = $date instanceof DateHeader ? $date->getDateTimeImmutable() : null;
         $id = trim((string) $message->getHeaderValue('Message-ID'), "<> \t");
 
+        // Images the body shows inline (signature logos and the like) are referenced as cid: in the HTML. Photos
+        // attached "inline" by phones aren't referenced, so they're kept.
+        preg_match_all('/cid:([^"\'\s>)]+)/i', (string) $message->getHtmlContent(), $matches);
+        $embedded = array_map('strtolower', $matches[1]);
+
         $attachments = [];
         foreach ($message->getAllAttachmentParts() as $part) {
+            $contentId = strtolower(trim((string) $part->getHeaderValue('Content-ID'), "<> \t"));
+
+            if ($contentId !== '' && in_array($contentId, $embedded, true)) {
+                continue;
+            }
+
             $contents = $part->getBinaryContentStream()?->getContents();
 
             if ($contents !== null && $contents !== '') {

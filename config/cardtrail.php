@@ -41,4 +41,15 @@ return [
         ],
     ],
 
+    /*
+    | Push services browsers subscribe through (Chrome/Edge/Android, Firefox,
+    | Safari/iOS, Windows). Subscriptions pointing anywhere else are refused.
+    */
+    'push_hosts' => [
+        'fcm.googleapis.com',
+        '.push.services.mozilla.com',
+        '.push.apple.com',
+        '.notify.windows.com',
+    ],
+
 ];
