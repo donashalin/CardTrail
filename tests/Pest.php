@@ -48,3 +48,18 @@ function something()
 {
     // ..
 }
+
+/** Build a statement CSV. Each row is a list of cells; cells containing commas must be quoted by the caller. */
+function statementCsv(array $rows, string $header = 'Date,Description,Card Member,Account #,Amount'): string
+{
+    return $header."\n".implode("\n", array_map(fn (array $row) => implode(',', $row), $rows))."\n";
+}
+
+/** A draft import whose stored file is this CSV. Call Storage::fake('local') first. */
+function importFromCsv(string $csv, array $attributes = []): App\Models\Import
+{
+    $import = App\Models\Import::factory()->create(['original_filename' => 'statement.csv', ...$attributes]);
+    Illuminate\Support\Facades\Storage::disk('local')->put($import->stored_path, $csv);
+
+    return $import;
+}
