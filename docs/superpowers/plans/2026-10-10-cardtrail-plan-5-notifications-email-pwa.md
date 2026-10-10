@@ -247,7 +247,8 @@ return new class extends Migration
         Schema::create('push_subscriptions', function (Blueprint $table) {
             $table->id();
             $table->morphs('subscribable', 'push_subscriptions_subscribable_morph_idx');
-            $table->string('endpoint', 1024)->unique();
+            // ASCII keeps the unique index within MySQL's key length (1024 × 4 bytes in utf8mb4 is too long).
+            $table->string('endpoint', 1024)->charset('ascii')->unique();
             $table->string('public_key')->nullable();
             $table->string('auth_token')->nullable();
             $table->string('content_encoding')->nullable();
