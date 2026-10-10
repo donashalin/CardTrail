@@ -51,4 +51,9 @@ class Period extends Model
     {
         return $this->transactions()->whereNull('reconciliation_id');
     }
+
+    public function exports(): HasMany
+    {
+        return $this->hasMany(Export::class);
+    }
 }

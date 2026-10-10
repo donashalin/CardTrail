@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ClosePeriodController;
+use App\Http\Controllers\Admin\ExportController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
@@ -49,4 +50,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('reconciliations/{reconciliation}/approve', ReconciliationApprovalController::class)->name('reconciliations.approve');
     Route::post('lines/{transaction}/approve', LineApprovalController::class)->name('lines.approve');
     Route::post('lines/{transaction}/query', LineQueryController::class)->name('lines.query');
+
+    Route::post('periods/{period}/exports', [ExportController::class, 'store'])->middleware('throttle:20,1')->name('exports.store');
+    Route::get('exports/{export}', [ExportController::class, 'show'])->name('exports.show');
 });

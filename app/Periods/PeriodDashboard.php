@@ -2,9 +2,11 @@
 
 namespace App\Periods;
 
+use App\Enums\ExportStatus;
 use App\Enums\PeriodStatus;
 use App\Enums\ReconciliationStatus;
 use App\Enums\TransactionStatus;
+use App\Models\Export;
 use App\Models\Import;
 use App\Models\Period;
 use App\Models\Reconciliation;
@@ -52,6 +54,16 @@ final class PeriodDashboard
                 'status' => $import->status->value,
                 'row_count' => $import->row_count,
                 'created_at' => $import->created_at->toIso8601String(),
+            ])->all(),
+            'exports' => $period->exports()->with(['user:id,name', 'requester:id,name'])->latest('id')->limit(10)->get()->map(fn (Export $export) => [
+                'id' => $export->id,
+                'status' => $export->status->value,
+                'scope' => $export->user?->name ?? 'Whole period',
+                'filename' => $export->filename,
+                'error' => $export->error,
+                'requested_by' => $export->requester->name,
+                'created_at' => $export->created_at->toIso8601String(),
+                'download_url' => $export->status === ExportStatus::Ready ? route('admin.exports.show', $export) : null,
             ])->all(),
             'unassigned_count' => $period->unassignedTransactions()->count(),
             'totals' => [
