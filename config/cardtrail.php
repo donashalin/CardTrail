@@ -1,5 +1,7 @@
 <?php
 
+use App\Auth\Fake\FakeIdentityProvider;
+
 return [
 
     /*
@@ -10,7 +12,7 @@ return [
         'driver' => env('CARDTRAIL_IDENTITY_DRIVER', 'fake'),
 
         'drivers' => [
-            'fake' => App\Auth\Fake\FakeIdentityProvider::class,
+            'fake' => FakeIdentityProvider::class,
         ],
     ],
 
