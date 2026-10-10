@@ -3,9 +3,13 @@
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
+use App\Http\Controllers\Admin\LineApprovalController;
+use App\Http\Controllers\Admin\LineQueryController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\PeriodLinesController;
 use App\Http\Controllers\Admin\PublishPeriodController;
+use App\Http\Controllers\Admin\ReconciliationApprovalController;
+use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use Illuminate\Support\Facades\Route;
@@ -38,4 +42,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::get('periods/{period}/lines', [PeriodLinesController::class, 'index'])->name('periods.lines');
     Route::put('periods/{period}/lines/assignment', [PeriodLinesController::class, 'update'])->name('periods.lines.assign');
+
+    Route::get('reconciliations/{reconciliation}/review', [ReviewController::class, 'show'])->name('reconciliations.review');
+    Route::post('reconciliations/{reconciliation}/approve', ReconciliationApprovalController::class)->name('reconciliations.approve');
+    Route::post('lines/{transaction}/approve', LineApprovalController::class)->name('lines.approve');
+    Route::post('lines/{transaction}/query', LineQueryController::class)->name('lines.query');
 });
