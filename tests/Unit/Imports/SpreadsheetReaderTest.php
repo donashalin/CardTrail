@@ -87,3 +87,15 @@ it('rejects files with too many rows', function () {
     expect(fn () => (new SpreadsheetReader)->read($path, 'statement.csv'))
         ->toThrow(UnreadableSpreadsheet::class, 'rows');
 });
+
+it('splits on commas even when a title line above the headers contains spaces', function () {
+    $path = tempFile("Corporate card statement\nDate,Card Member,Amount\n03/10/2026,S CARDHOLDER,1.00\n", 'csv');
+
+    expect((new SpreadsheetReader)->read($path, 'statement.csv')[2])->toBe(['Date', 'Card Member', 'Amount']);
+});
+
+it('reads semicolon- and tab-separated exports', function (string $separator) {
+    $path = tempFile("Date{$separator}Card Member{$separator}Amount\n03/10/2026{$separator}S CARDHOLDER{$separator}1,00\n", 'csv');
+
+    expect((new SpreadsheetReader)->read($path, 'statement.csv')[2])->toBe(['03/10/2026', 'S CARDHOLDER', '1,00']);
+})->with(['semicolon' => ';', 'tab' => "\t"]);

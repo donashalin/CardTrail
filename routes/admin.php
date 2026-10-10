@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\ImportController;
+use App\Http\Controllers\Admin\ImportMappingController;
+use App\Http\Controllers\Admin\ImportPreviewController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserInvitationController;
@@ -21,4 +24,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('periods/{period}', [PeriodController::class, 'show'])->name('periods.show');
     Route::get('periods/{period}/edit', [PeriodController::class, 'edit'])->name('periods.edit');
     Route::put('periods/{period}', [PeriodController::class, 'update'])->name('periods.update');
+
+    Route::get('periods/{period}/imports/create', [ImportController::class, 'create'])->name('imports.create');
+    Route::post('periods/{period}/imports', [ImportController::class, 'store'])->name('imports.store');
+    Route::delete('imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
+    Route::get('imports/{import}/mapping', [ImportMappingController::class, 'edit'])->name('imports.mapping.edit');
+    Route::put('imports/{import}/mapping', [ImportMappingController::class, 'update'])->name('imports.mapping.update');
+    Route::get('imports/{import}/preview', [ImportPreviewController::class, 'show'])->name('imports.preview');
+    Route::post('imports/{import}/confirm', [ImportPreviewController::class, 'store'])->name('imports.confirm');
 });

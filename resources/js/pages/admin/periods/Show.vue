@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate, formatPence } from '@/lib/money';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 
 interface DashboardPeriod {
     id: number;
@@ -47,6 +47,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: props.period.label, href: `/admin/periods/${props.period.id}` },
 ];
 
+const removeImport = (upload: DashboardImport) => {
+    if (window.confirm(`Remove ${upload.original_filename}? Any lines it created will be deleted.`)) {
+        router.delete(route('admin.imports.destroy', upload.id), { preserveScroll: true });
+    }
+};
+
 const statusLabel = (row: DashboardReconciliation) => {
     if (row.status === 'submitted') return 'Submitted';
     if (row.status === 'approved') return 'Approved';
@@ -72,6 +78,9 @@ const statusLabel = (row: DashboardReconciliation) => {
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2" data-actions>
+                    <Button v-if="period.status !== 'closed'" as-child>
+                        <Link :href="route('admin.imports.create', period.id)">Upload statement</Link>
+                    </Button>
                     <Button v-if="period.status !== 'closed'" variant="outline" as-child>
                         <Link :href="route('admin.periods.edit', period.id)">Edit</Link>
                     </Button>
@@ -117,6 +126,14 @@ const statusLabel = (row: DashboardReconciliation) => {
                             <div class="text-muted-foreground">
                                 {{ upload.status === 'confirmed' ? `${upload.row_count} lines imported` : 'Not finished' }} · {{ formatDate(upload.created_at) }}
                             </div>
+                        </div>
+                        <div class="flex shrink-0 gap-2">
+                            <Button v-if="upload.status === 'draft'" size="sm" variant="outline" as-child>
+                                <Link :href="route('admin.imports.preview', upload.id)">Continue</Link>
+                            </Button>
+                            <Button v-if="upload.status === 'draft' || period.status === 'draft'" size="sm" variant="ghost" @click="removeImport(upload)">
+                                Remove
+                            </Button>
                         </div>
                     </li>
                     <li v-if="!imports.length" class="p-4 text-sm text-muted-foreground">No files uploaded yet.</li>

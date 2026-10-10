@@ -55,4 +55,16 @@ class Import extends Model
     {
         return $this->belongsTo(User::class, 'uploaded_by');
     }
+
+    /** An earlier confirmed upload of the very same file into this period, if any. */
+    public function duplicateOf(): ?self
+    {
+        return self::query()
+            ->where('period_id', $this->period_id)
+            ->where('file_hash', $this->file_hash)
+            ->whereKeyNot($this->id)
+            ->where('status', ImportStatus::Confirmed)
+            ->oldest('id')
+            ->first();
+    }
 }
