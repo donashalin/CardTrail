@@ -27,10 +27,15 @@ const firstName = user.name.split(' ')[0];
 
             <section v-if="user.is_admin" class="rounded-xl border p-4">
                 <h2 class="font-medium">Admin</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Add cardholders and their card identifiers before the first statement upload.</p>
-                <Button class="mt-3" as-child>
-                    <Link :href="route('admin.users.index')">Manage users</Link>
-                </Button>
+                <p class="mt-1 text-sm text-muted-foreground">Create a period for each statement month, upload the export, and track who has finished.</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <Button as-child>
+                        <Link :href="route('admin.periods.index')">Periods</Link>
+                    </Button>
+                    <Button variant="outline" as-child>
+                        <Link :href="route('admin.users.index')">Manage users</Link>
+                    </Button>
+                </div>
             </section>
         </div>
     </AppLayout>
