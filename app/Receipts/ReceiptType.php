@@ -32,14 +32,16 @@ final class ReceiptType
     }
 
     /**
-     * Browsers display PDFs and images themselves, so those bytes must really be a PDF or an image.
-     * Other types are always downloaded, never displayed, so their contents aren't checked.
+     * Browsers display PDFs and images themselves, and HEIC photos are converted, so those bytes must
+     * really be what the name says. Word files are only ever downloaded, so their contents aren't checked.
      */
     public static function contentMatches(string $extension, string $detected): bool
     {
         return match (self::MIMES[$extension]) {
             'application/pdf' => $detected === 'application/pdf',
             'image/jpeg', 'image/png' => in_array($detected, ['image/jpeg', 'image/png'], true),
+            // Converted by the image job, so it must really be HEIC/HEIF before any image library sees it.
+            'image/heic', 'image/heif' => in_array($detected, ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'], true),
             default => true,
         };
     }

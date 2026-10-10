@@ -132,3 +132,15 @@ it('refuses comments from other cardholders, on closed months, and empty ones', 
     $this->actingAs($this->sam)->post(route('transactions.comments.store', $closed), ['body' => 'Hi'])->assertForbidden();
     $this->actingAs($this->sam)->post(route('transactions.comments.store', $line), ['body' => ''])->assertSessionHasErrors('body');
 });
+
+it('answers a background autosave with the new status instead of redirecting', function () {
+    $line = lineFor($this->sam);
+
+    $this->actingAs($this->sam)->putJson(route('transactions.update', $line), [
+        'purpose' => 'Parking',
+        'no_receipt' => true,
+        'no_receipt_reason' => 'Machine broken',
+    ])->assertOk()->assertExactJson(['status' => 'done']);
+
+    expect($line->fresh()->status)->toBe(TransactionStatus::Done);
+});

@@ -34,7 +34,7 @@ final class ImageOptimiser
             return;
         }
 
-        $result = class_exists(Imagick::class) ? $this->withImagick($original, $heic) : $this->withGd($original, $receipt->mime);
+        $result = class_exists(Imagick::class) ? $this->withImagick($original, $heic, $receipt->mime === 'image/png' ? 'PNG' : 'JPEG') : $this->withGd($original, $receipt->mime);
 
         if ($result === null) {
             return;
@@ -53,9 +53,11 @@ final class ImageOptimiser
     }
 
     /** @return array{0: string, 1: string, 2: string}|null */
-    private function withImagick(string $bytes, bool $heic): ?array
+    private function withImagick(string $bytes, bool $heic, string $format): ?array
     {
+        // Name the format so ImageMagick never guesses from the contents (and never reaches its riskier decoders).
         $image = new Imagick;
+        $image->setFormat($heic ? 'HEIC' : $format);
         $image->readImageBlob($bytes);
         $large = max($image->getImageWidth(), $image->getImageHeight()) > self::MAX_EDGE;
 

@@ -7,6 +7,7 @@ use App\Models\Comment;
 use App\Models\Receipt;
 use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -67,7 +68,7 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function update(Request $request, Transaction $transaction): RedirectResponse
+    public function update(Request $request, Transaction $transaction): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'purpose' => ['nullable', 'string', 'max:1000'],
@@ -102,6 +103,11 @@ class TransactionController extends Controller
 
             return $line;
         });
+
+        // Background autosave: answer in place so it never navigates or cancels an upload in progress.
+        if ($request->wantsJson()) {
+            return response()->json(['status' => $line->status->value]);
+        }
 
         if (! $request->boolean('next')) {
             return back();

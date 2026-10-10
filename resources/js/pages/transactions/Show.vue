@@ -12,7 +12,8 @@ import { type BreadcrumbItem } from '@/types';
 import type { LineStatus, PeriodStatus, ReceiptItem, ReconciliationStatus } from '@/types/cardtrail';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import axios from 'axios';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 interface Line {
     id: number;
@@ -62,9 +63,11 @@ const fields = reactive({
     no_receipt: props.line.no_receipt,
     no_receipt_reason: props.line.no_receipt_reason,
 });
+const status = ref<LineStatus>(props.line.status);
 const saveState = ref<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
 const saveErrors = ref<Record<string, string>>({});
 let timer: ReturnType<typeof setTimeout> | undefined;
+let inFlight: Promise<void> | null = null;
 
 // Inertia reuses this page when moving between lines, so start fresh when the line changes.
 watch(
@@ -77,28 +80,47 @@ watch(
         saveErrors.value = {};
     },
 );
+watch(
+    () => props.line.status,
+    (value) => (status.value = value),
+);
 
-onBeforeUnmount(() => clearTimeout(timer));
+const failureMessage = (code: number | undefined) => {
+    if (code === 403) return 'This line can no longer be changed. Reload the page to see why.';
+    if (code === 419) return 'Your session has expired. Reload the page and sign in again.';
+    return 'Couldn’t save – check your connection. It will try again when you next type.';
+};
 
-const save = (next = false, after?: () => void) => {
+/**
+ * Autosave runs as a plain background request, not an Inertia visit, so it never navigates
+ * and never cancels an upload or a page change that is under way.
+ */
+const save = (): Promise<void> => {
+    const lineId = props.line.id;
     saveState.value = 'saving';
-    router.put(
-        route('transactions.update', props.line.id),
-        { ...fields, next },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                saveState.value = 'saved';
-                saveErrors.value = {};
-            },
-            onError: (errors) => {
-                saveState.value = 'error';
-                saveErrors.value = errors;
-            },
-            onFinish: () => after?.(),
-        },
-    );
+
+    const request = axios
+        .put(route('transactions.update', lineId), { ...fields }, { headers: { Accept: 'application/json' } })
+        .then(({ data }) => {
+            if (props.line.id !== lineId) return;
+            status.value = data.status;
+            saveErrors.value = {};
+            if (!timer) saveState.value = 'saved';
+        })
+        .catch((error) => {
+            if (props.line.id !== lineId) return;
+            saveState.value = 'error';
+            const errors = error.response?.status === 422 ? error.response.data.errors : null;
+            saveErrors.value = errors
+                ? Object.fromEntries(Object.entries(errors as Record<string, string[]>).map(([key, messages]) => [key, messages[0]]))
+                : { form: failureMessage(error.response?.status) };
+        });
+
+    inFlight = request.finally(() => {
+        if (inFlight === request) inFlight = null;
+    });
+
+    return request;
 };
 
 const queueSave = () => {
@@ -114,22 +136,49 @@ const queueSave = () => {
     }, 800);
 };
 
-/** Save any typing that hasn't been sent yet, then carry on. Inertia cancels a visit when another starts. */
-const flushThen = (then: () => void) => {
+/** Send any typing that hasn't been saved yet. Resolves once nothing is waiting. */
+const flush = (): Promise<void> => {
     if (timer) {
         clearTimeout(timer);
         timer = undefined;
-        save(false, then);
-    } else {
-        then();
+        return save();
     }
+
+    return inFlight ?? Promise.resolve();
+};
+
+const flushThen = (then: () => void) => {
+    flush().finally(then);
 };
 
 const saveAndNext = () => {
-    clearTimeout(timer);
-    timer = undefined;
-    save(true);
+    flush().finally(() => router.put(route('transactions.update', props.line.id), { ...fields, next: true }, { preserveScroll: true }));
 };
+
+// Leaving the line by any link: save what was typed. Leaving mid-upload: check first.
+const removeBeforeListener = router.on('before', (event) => {
+    if (event.detail.visit.method === 'get' && upload.processing && !confirm('A receipt is still uploading. Leave this page anyway?')) {
+        return false;
+    }
+
+    if (timer) {
+        flush();
+    }
+});
+
+const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (timer || inFlight || upload.processing) {
+        event.preventDefault();
+        event.returnValue = '';
+    }
+};
+
+onMounted(() => window.addEventListener('beforeunload', warnBeforeUnload));
+onBeforeUnmount(() => {
+    removeBeforeListener();
+    window.removeEventListener('beforeunload', warnBeforeUnload);
+    if (timer) flush();
+});
 
 const useSuggestion = (purpose: string) => {
     fields.purpose = purpose;
@@ -183,7 +232,7 @@ const lockedReason = computed(() => {
         return 'This month is closed, so this line can’t be changed.';
     }
 
-    if (props.line.status === 'approved') {
+    if (status.value === 'approved') {
         return 'Accounts have approved this line.';
     }
 
@@ -224,7 +273,7 @@ const textareaClass =
             <section class="rounded-xl border p-4">
                 <div class="flex items-start justify-between gap-3">
                     <h1 class="text-lg font-semibold break-words">{{ line.description }}</h1>
-                    <LineStatusBadge :status="line.status" />
+                    <LineStatusBadge :status="status" />
                 </div>
                 <p class="mt-2 text-2xl font-semibold tabular-nums">{{ formatPence(line.amount) }}</p>
                 <p class="text-sm text-muted-foreground">
@@ -287,7 +336,7 @@ const textareaClass =
                 <template v-if="editable">
                     <ReceiptPicker :processing="upload.processing" @selected="uploadFiles" />
                     <p v-if="upload.progress" class="text-sm text-muted-foreground">Uploading… {{ upload.progress.percentage }}%</p>
-                    <p v-if="uploadError" class="text-sm text-red-600 dark:text-red-400">{{ uploadError }} Your purpose has been kept – try again.</p>
+                    <p v-if="uploadError" class="text-sm text-red-600 dark:text-red-400">{{ uploadError }} Your purpose has been kept, so just try the upload again.</p>
 
                     <label v-if="!isCredit" class="flex items-center gap-2 text-sm">
                         <Checkbox :checked="fields.no_receipt" @update:checked="toggleNoReceipt" />
@@ -332,7 +381,9 @@ const textareaClass =
             </section>
 
             <div class="sticky bottom-0 -mx-4 flex items-center gap-3 border-t bg-background/95 p-4 backdrop-blur">
-                <span class="flex-1 text-sm text-muted-foreground" aria-live="polite">{{ saveLabel }}</span>
+                <span class="flex-1 text-sm" :class="saveErrors.form ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'" aria-live="polite">
+                    {{ saveErrors.form ?? saveLabel }}
+                </span>
                 <Button v-if="editable" :disabled="saveState === 'saving'" @click="saveAndNext">Save &amp; next</Button>
                 <Button v-else-if="nav.next" variant="outline" as-child>
                     <Link :href="route('transactions.show', nav.next)">Next line</Link>

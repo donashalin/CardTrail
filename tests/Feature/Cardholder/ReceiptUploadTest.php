@@ -137,3 +137,21 @@ it('keeps a HEIC photo as it is when the server cannot convert it', function () 
     expect(Receipt::sole())->mime->toBe('image/heic')->path->toEndWith('.heic');
     Log::shouldHaveReceived('warning')->once();
 })->skip(fn () => class_exists(Imagick::class) && Imagick::queryFormats('HEIC') !== [], 'Imagick can convert HEIC here');
+
+it('refuses a .heic file that is really something else', function () {
+    $path = tempnam(sys_get_temp_dir(), 'receipt');
+    file_put_contents($path, '<svg xmlns="http://www.w3.org/2000/svg"><image href="text:/etc/passwd"/></svg>');
+
+    uploadTo(lineFor($this->sam), [new UploadedFile($path, 'receipt.heic', null, null, true)])->assertSessionHasErrors('files.0');
+
+    expect(Receipt::count())->toBe(0);
+});
+
+it('accepts a genuine HEIC file', function () {
+    $path = tempnam(sys_get_temp_dir(), 'receipt');
+    file_put_contents($path, "\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic".str_repeat("\x00", 64));
+
+    uploadTo(lineFor($this->sam), [new UploadedFile($path, 'IMG_0001.heic', null, null, true)])->assertSessionHasNoErrors();
+
+    expect(Receipt::sole()->mime)->toBe('image/heic');
+});
