@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Import;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /*
@@ -56,10 +58,10 @@ function statementCsv(array $rows, string $header = 'Date,Description,Card Membe
 }
 
 /** A draft import whose stored file is this CSV. Call Storage::fake('local') first. */
-function importFromCsv(string $csv, array $attributes = []): App\Models\Import
+function importFromCsv(string $csv, array $attributes = []): Import
 {
-    $import = App\Models\Import::factory()->create(['original_filename' => 'statement.csv', ...$attributes]);
-    Illuminate\Support\Facades\Storage::disk('local')->put($import->stored_path, $csv);
+    $import = Import::factory()->create(['original_filename' => 'statement.csv', ...$attributes]);
+    Storage::disk('local')->put($import->stored_path, $csv);
 
     return $import;
 }

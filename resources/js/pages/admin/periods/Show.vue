@@ -53,6 +53,16 @@ const removeImport = (upload: DashboardImport) => {
     }
 };
 
+const publish = () => {
+    const warning = props.unassigned_count > 0
+        ? `\n\n${props.unassigned_count} unassigned ${props.unassigned_count === 1 ? 'line' : 'lines'} won't go to anyone until you assign them.`
+        : '';
+
+    if (window.confirm(`Publish ${props.period.label}? Cardholders will be able to see and complete their lines.${warning}`)) {
+        router.post(route('admin.periods.publish', props.period.id), {}, { preserveScroll: true });
+    }
+};
+
 const statusLabel = (row: DashboardReconciliation) => {
     if (row.status === 'submitted') return 'Submitted';
     if (row.status === 'approved') return 'Approved';
@@ -78,6 +88,7 @@ const statusLabel = (row: DashboardReconciliation) => {
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2" data-actions>
+                    <Button v-if="period.status === 'draft' && imports.some((upload) => upload.status === 'confirmed')" @click="publish">Publish</Button>
                     <Button v-if="period.status !== 'closed'" as-child>
                         <Link :href="route('admin.imports.create', period.id)">Upload statement</Link>
                     </Button>

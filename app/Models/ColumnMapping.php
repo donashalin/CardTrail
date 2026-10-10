@@ -23,7 +23,7 @@ class ColumnMapping extends Model
      * Look for a saved layout among a file's first rows.
      *
      * @param  array<int, list<mixed>>  $rows  rows keyed by row number
-     * @return array{0: self, 1: int}|null  the saved mapping and the row its headers are on
+     * @return array{0: self, 1: int}|null the saved mapping and the row its headers are on
      */
     public static function matchFirstRows(array $rows, int $limit = 10): ?array
     {

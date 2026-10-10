@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ImportMappingController;
 use App\Http\Controllers\Admin\ImportPreviewController;
 use App\Http\Controllers\Admin\PeriodController;
 use App\Http\Controllers\Admin\PeriodLinesController;
+use App\Http\Controllers\Admin\PublishPeriodController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserInvitationController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('periods/{period}', [PeriodController::class, 'show'])->name('periods.show');
     Route::get('periods/{period}/edit', [PeriodController::class, 'edit'])->name('periods.edit');
     Route::put('periods/{period}', [PeriodController::class, 'update'])->name('periods.update');
+    Route::post('periods/{period}/publish', PublishPeriodController::class)->name('periods.publish');
 
     Route::get('periods/{period}/imports/create', [ImportController::class, 'create'])->name('imports.create');
     Route::post('periods/{period}/imports', [ImportController::class, 'store'])->name('imports.store');

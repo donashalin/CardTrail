@@ -3,6 +3,7 @@
 use App\Enums\ImportStatus;
 use App\Enums\ReconciliationStatus;
 use App\Events\ReconciliationLinesAdded;
+use App\Imports\CommitResult;
 use App\Imports\ImportCommitter;
 use App\Imports\ImportNotReady;
 use App\Models\CardIdentifier;
@@ -170,6 +171,6 @@ it('logs the import', function () {
 });
 
 it('describes the result', function () {
-    expect((new App\Imports\CommitResult(12, 2, 1))->message())->toBe('Imported 12 lines (2 unassigned, 1 duplicate skipped).')
-        ->and((new App\Imports\CommitResult(1, 0, 0))->message())->toBe('Imported 1 line.');
+    expect((new CommitResult(12, 2, 1))->message())->toBe('Imported 12 lines (2 unassigned, 1 duplicate skipped).')
+        ->and((new CommitResult(1, 0, 0))->message())->toBe('Imported 1 line.');
 });
