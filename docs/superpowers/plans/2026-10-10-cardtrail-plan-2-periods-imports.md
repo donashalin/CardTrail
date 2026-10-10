@@ -15,9 +15,7 @@
 ## Global Constraints
 
 - Everything in Plan 1's Global Constraints still applies (git author `donashalin <donashalin@gmail.com>`, never commit `.env`, invented data only, UK English, emails lower-cased).
-- Commit messages end with these two trailer lines:
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
-  `Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe`
+- Commit messages are plain: no Co-Authored-By, session or other AI attribution lines. The user is the sole author.
 - **Money is an integer number of pence.** Negative = credit/refund. Never store floats.
 - **Only the last 4 digits of a card number are ever stored.** Any run of 13–19 digits (spaces/dashes allowed) in a description or extra column is masked to `**** 1234` before saving.
 - **Row numbers are the real spreadsheet row numbers** (blank rows still count), so "Row29" means row 29 in the file the accountant uploaded.
@@ -876,10 +874,7 @@ Expected: all PASS.
 
 ```bash
 git add app/Enums app/Models database/migrations database/factories tests/Feature/Models/PeriodDomainTest.php
-git commit -m "feat: periods, imports, reconciliations and transactions schema
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: periods, imports, reconciliations and transactions schema"
 ```
 
 ---
@@ -1265,10 +1260,7 @@ Run: `php artisan test` — all PASS.
 
 ```bash
 git add app/Imports tests/Unit/Imports
-git commit -m "feat: statement date, amount, header and card-number parsers
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: statement date, amount, header and card-number parsers"
 ```
 
 ---
@@ -1841,10 +1833,7 @@ Run: `php artisan test` — all PASS.
 
 ```bash
 git add app/Imports tests/Unit/Imports tests/Feature/Imports
-git commit -m "feat: statement row parsing, column guessing and cardholder matching
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: statement row parsing, column guessing and cardholder matching"
 ```
 
 ---
@@ -2133,10 +2122,7 @@ Run: `php artisan test` — all PASS.
 
 ```bash
 git add composer.json composer.lock app/Imports app/Providers/AppServiceProvider.php tests/Unit/Imports/SpreadsheetReaderTest.php
-git commit -m "feat: read CSV and Excel statements with real row numbers
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: read CSV and Excel statements with real row numbers"
 ```
 
 ---
@@ -2978,10 +2964,7 @@ Expected: all PASS; build succeeds; the final grep prints nothing.
 
 ```bash
 git add -A
-git commit -m "feat: periods admin with dashboard
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: periods admin with dashboard"
 ```
 
 ---
@@ -3346,10 +3329,7 @@ Run: `php artisan test` — all PASS.
 
 ```bash
 git add app/Imports tests/Pest.php tests/Feature/Imports/ImportPreviewerTest.php
-git commit -m "feat: preview an import with matches, problems and duplicates
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: preview an import with matches, problems and duplicates"
 ```
 
 ---
@@ -3874,10 +3854,7 @@ Run: `php artisan test` — all PASS.
 
 ```bash
 git add app/Imports app/Events app/Models/Reconciliation.php tests/Feature/Imports
-git commit -m "feat: confirm imports into reconciliations and remove imports
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: confirm imports into reconciliations and remove imports"
 ```
 
 ---
@@ -4985,10 +4962,7 @@ Expected: all PASS; build succeeds; the final grep prints nothing.
 
 ```bash
 git add -A
-git commit -m "feat: statement upload, column matching and import preview screens
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: statement upload, column matching and import preview screens"
 ```
 
 ---
@@ -5499,10 +5473,7 @@ Expected: all PASS; build succeeds; the final grep prints nothing.
 
 ```bash
 git add -A
-git commit -m "feat: assign and reassign period lines
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: assign and reassign period lines"
 ```
 
 ---
@@ -5763,8 +5734,5 @@ Expected: every step behaves as described.
 
 ```bash
 git add -A
-git commit -m "feat: publish periods; invented demo statement for manual testing
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01XpJdgy8p6eQvaFFZDgFbKe"
+git commit -m "feat: publish periods; invented demo statement for manual testing"
 ```
