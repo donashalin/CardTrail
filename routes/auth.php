@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\AcceptInvitationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -43,6 +44,11 @@ Route::middleware('guest')->group(function () {
     Route::get('auth/identity/callback', [IdentityController::class, 'callback'])
         ->middleware('throttle:20,1')
         ->name('identity.callback');
+
+    Route::get('invite/{token}', [AcceptInvitationController::class, 'show'])->name('invite.show');
+    Route::post('invite', [AcceptInvitationController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('invite.store');
 
     if (app()->environment('local', 'testing')) {
         Route::get('auth/fake-identity', [FakeIdentityController::class, 'show'])->name('identity.fake');

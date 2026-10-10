@@ -42,8 +42,9 @@ class UserController extends Controller
     {
         $user = User::create($request->userAttributes());
         $user->syncCardIdentifiers($request->cardIdentifiers());
+        $user->sendInvite();
 
-        return to_route('admin.users.index')->with('success', "{$user->name} has been added.");
+        return to_route('admin.users.index')->with('success', "{$user->name} has been added and emailed an invitation.");
     }
 
     public function edit(User $user): Response
@@ -59,9 +60,19 @@ class UserController extends Controller
 
     public function update(UserRequest $request, User $user): RedirectResponse
     {
+        $wasMicrosoft = $user->use_microsoft;
+
         $user->update($request->userAttributes());
         $user->syncCardIdentifiers($request->cardIdentifiers());
 
-        return to_route('admin.users.index')->with('success', "{$user->name} has been updated.");
+        $message = "{$user->name} has been updated.";
+
+        // Someone moved off Microsoft 365 with no password would otherwise be unable to sign in.
+        if ($wasMicrosoft && ! $user->use_microsoft && $user->password === null) {
+            $user->sendInvite();
+            $message .= ' They have been emailed a link to set a password.';
+        }
+
+        return to_route('admin.users.index')->with('success', $message);
     }
 }

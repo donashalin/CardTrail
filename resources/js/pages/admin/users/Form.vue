@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FlashMessage from '@/components/FlashMessage.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { Plus, Trash2 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -52,6 +53,12 @@ const errors = computed(() => form.errors as Record<string, string | undefined>)
 const addIdentifier = () => form.card_identifiers.push({ id: null, last4: '', cardholder_name: '' });
 const removeIdentifier = (index: number) => form.card_identifiers.splice(index, 1);
 
+const resendInvite = () => {
+    if (props.user) {
+        router.post(route('admin.users.invite', props.user.id), {}, { preserveScroll: true });
+    }
+};
+
 const submit = () => {
     if (props.user) {
         form.put(route('admin.users.update', props.user.id));
@@ -66,6 +73,8 @@ const submit = () => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <form @submit.prevent="submit" class="flex max-w-2xl flex-col gap-6 p-4">
+            <FlashMessage />
+
             <div class="grid gap-2">
                 <Label for="name">Name</Label>
                 <Input id="name" v-model="form.name" required autocomplete="off" />
@@ -141,6 +150,9 @@ const submit = () => {
                 <Button type="submit" :disabled="form.processing">{{ isEdit ? 'Save changes' : 'Add user' }}</Button>
                 <Button variant="ghost" as-child>
                     <Link :href="route('admin.users.index')">Cancel</Link>
+                </Button>
+                <Button v-if="user && user.active" type="button" variant="outline" class="ml-auto" @click="resendInvite">
+                    Resend invitation
                 </Button>
             </div>
         </form>

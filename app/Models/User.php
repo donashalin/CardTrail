@@ -3,12 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\UserInvited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -83,6 +85,13 @@ class User extends Authenticatable
     public function scopeActive(Builder $query): void
     {
         $query->where('active', true);
+    }
+
+    public function sendInvite(): void
+    {
+        $token = $this->use_microsoft ? null : Password::broker('invites')->createToken($this);
+
+        $this->notify(new UserInvited($token));
     }
 
     public function getActivitylogOptions(): LogOptions
