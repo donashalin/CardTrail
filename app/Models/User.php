@@ -3,9 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -21,6 +25,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'use_microsoft',
+        'is_admin',
+        'is_cardholder',
+        'active',
     ];
 
     /**
@@ -31,6 +39,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'external_id',
     ];
 
     /**
@@ -43,6 +52,26 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'use_microsoft' => 'boolean',
+            'is_admin' => 'boolean',
+            'is_cardholder' => 'boolean',
+            'active' => 'boolean',
         ];
+    }
+
+    /** Emails are compared case-insensitively everywhere, so store them normalised. */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (string $value) => Str::lower(trim($value)));
+    }
+
+    public function cardIdentifiers(): HasMany
+    {
+        return $this->hasMany(CardIdentifier::class);
+    }
+
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('active', true);
     }
 }

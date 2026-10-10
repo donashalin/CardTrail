@@ -41,4 +41,19 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => ['is_admin' => true]);
+    }
+
+    public function microsoft(): static
+    {
+        return $this->state(fn (array $attributes) => ['use_microsoft' => true, 'password' => null]);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => ['active' => false]);
+    }
 }
