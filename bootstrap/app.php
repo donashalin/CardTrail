@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
         ]);
 
+        // A proxy on this machine, like `tailscale serve`, terminates HTTPS and forwards to us.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->remove(ValidatePostSize::class);
 
         $middleware->web(append: [

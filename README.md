@@ -46,6 +46,20 @@ PHP's defaults (`upload_max_filesize=2M`, `post_max_size=8M`) are below CardTrai
 
 Push notifications and installing to the Home Screen need HTTPS (or `localhost`). On an iPhone, open the site in Safari, then choose Share → Add to Home Screen. Open CardTrail from the Home Screen icon to be offered notifications. Email notifications work everywhere.
 
+### Opening it on your phone over Tailscale
+
+Tailscale gives this Mac an HTTPS address that your other tailnet devices can reach, which is enough for push notifications and Add to Home Screen. It needs MagicDNS and HTTPS Certificates turned on under DNS in the Tailscale admin console.
+
+```bash
+# Once: set APP_URL to this Mac's tailnet address, so emails and notifications link there
+sed -i '' -E "s#^APP_URL=.*#APP_URL=https://$(tailscale status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')#" .env
+
+composer tailnet                    # builds the assets, then runs the server on 127.0.0.1:8088, the queue worker and the scheduler
+tailscale serve --bg 8088           # tailnet only, and remembered across restarts; `tailscale serve reset` turns it off
+```
+
+`tailscale serve status` shows the address. Don't run `npm run dev` at the same time: it points the pages at Vite on `localhost`, which a phone can't reach. Don't use `tailscale funnel`, which would put CardTrail on the public internet.
+
 ## Integrations added later
 
 - **Company sign-in.** Microsoft 365 sign-in goes through `App\Auth\IdentityProvider`. Add an adapter for the internal AD package and point `CARDTRAIL_IDENTITY_DRIVER` at it.
