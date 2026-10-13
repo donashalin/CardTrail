@@ -72,6 +72,7 @@ const snapshot = () =>
     JSON.stringify({ purpose: fields.purpose ?? '', no_receipt: fields.no_receipt, no_receipt_reason: fields.no_receipt_reason ?? '' });
 const savedSnapshot = ref(snapshot());
 const dirty = computed(() => props.editable && snapshot() !== savedSnapshot.value);
+const needsReason = computed(() => fields.no_receipt && !isCredit.value && !(fields.no_receipt_reason ?? '').trim());
 
 // Inertia reuses this page when moving between lines, so start fresh when the line changes.
 watch(
@@ -204,6 +205,7 @@ const lockedReason = computed(() => {
 const saveLabel = computed(() => {
     if (Object.keys(saveErrors.value).length) return 'Not saved – check the form';
     if (saving.value) return 'Saving…';
+    if (needsReason.value) return 'Add a reason for having no receipt to save';
     if (dirty.value) return 'Unsaved changes';
     return justSaved.value ? 'Saved' : '';
 });
@@ -319,6 +321,9 @@ const textareaClass =
                             placeholder="e.g. Parking machine didn’t print one"
                         />
                         <p v-if="saveErrors.no_receipt_reason" class="text-sm text-red-600 dark:text-red-400">{{ saveErrors.no_receipt_reason }}</p>
+                        <p v-else-if="needsReason" class="text-sm text-muted-foreground">
+                            Needed before you can save. Or untick the box if you do have a receipt.
+                        </p>
                     </div>
                 </template>
                 <p v-else-if="line.no_receipt" class="text-sm">No receipt: {{ line.no_receipt_reason || '—' }}</p>
@@ -356,8 +361,8 @@ const textareaClass =
                     {{ saveLabel }}
                 </span>
                 <template v-if="editable">
-                    <Button variant="outline" :disabled="!dirty || saving" @click="save(false)">Save</Button>
-                    <Button :disabled="saving" @click="save(true)">Save &amp; next</Button>
+                    <Button variant="outline" :disabled="!dirty || saving || needsReason" @click="save(false)">Save</Button>
+                    <Button :disabled="saving || needsReason" @click="save(true)">Save &amp; next</Button>
                 </template>
                 <Button v-else-if="nav.next" variant="outline" as-child>
                     <Link :href="route('transactions.show', nav.next)">Next line</Link>

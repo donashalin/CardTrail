@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -72,8 +73,11 @@ class TransactionController extends Controller
         $data = $request->validate([
             'purpose' => ['nullable', 'string', 'max:1000'],
             'no_receipt' => ['required', 'boolean'],
-            'no_receipt_reason' => ['nullable', 'string', 'max:500'],
+            // Credits hide the no-receipt box, so they never need a reason.
+            'no_receipt_reason' => [Rule::requiredIf($request->boolean('no_receipt') && $transaction->amount >= 0), 'nullable', 'string', 'max:500'],
             'next' => ['sometimes', 'boolean'],
+        ], [
+            'no_receipt_reason.required' => 'Say why there’s no receipt, or untick “I don’t have a receipt”.',
         ]);
 
         $line = DB::transaction(function () use ($request, $transaction, $data) {

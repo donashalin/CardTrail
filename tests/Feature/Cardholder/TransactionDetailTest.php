@@ -153,3 +153,26 @@ it('keeps a line queried when the accountant adds to the thread', function () {
 
     expect($line->fresh()->status)->toBe(TransactionStatus::Queried);
 });
+
+it('needs a reason before saving a line marked as having no receipt', function (?string $reason) {
+    $line = lineFor($this->sam);
+
+    $this->actingAs($this->sam)->from(route('transactions.show', $line))->put(route('transactions.update', $line), [
+        'purpose' => 'Parking',
+        'no_receipt' => true,
+        'no_receipt_reason' => $reason,
+        'next' => true,
+    ])->assertRedirect(route('transactions.show', $line))
+        ->assertSessionHasErrors(['no_receipt_reason' => 'Say why there’s no receipt, or untick “I don’t have a receipt”.']);
+
+    expect($line->fresh())->purpose->toBeNull()->no_receipt->toBeFalse();
+})->with([null, '', '   ']);
+
+it('doesn’t ask for a no-receipt reason on a credit, which hides that box', function () {
+    $line = lineFor($this->sam, ['amount' => -2499, 'no_receipt' => true]);
+
+    $this->actingAs($this->sam)->put(route('transactions.update', $line), ['purpose' => 'Refund for returned cable', 'no_receipt' => true, 'no_receipt_reason' => ''])
+        ->assertSessionHasNoErrors();
+
+    expect($line->fresh()->status)->toBe(TransactionStatus::Done);
+});
