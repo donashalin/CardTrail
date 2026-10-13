@@ -71,12 +71,13 @@ class TransactionController extends Controller
     public function update(Request $request, Transaction $transaction): RedirectResponse
     {
         $data = $request->validate([
-            'purpose' => ['nullable', 'string', 'max:1000'],
+            'purpose' => [Rule::requiredIf(fn () => $transaction->receipts()->exists()), 'nullable', 'string', 'max:1000'],
             'no_receipt' => ['required', 'boolean'],
             // Credits hide the no-receipt box, so they never need a reason.
             'no_receipt_reason' => [Rule::requiredIf($request->boolean('no_receipt') && $transaction->amount >= 0), 'nullable', 'string', 'max:500'],
             'next' => ['sometimes', 'boolean'],
         ], [
+            'purpose.required' => 'Say what this was for. It’s needed once a receipt is attached.',
             'no_receipt_reason.required' => 'Say why there’s no receipt, or untick “I don’t have a receipt”.',
         ]);
 

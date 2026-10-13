@@ -176,3 +176,21 @@ it('doesn’t ask for a no-receipt reason on a credit, which hides that box', fu
 
     expect($line->fresh()->status)->toBe(TransactionStatus::Done);
 });
+
+it('needs a purpose before saving a line that has a receipt attached', function (?string $purpose) {
+    $line = lineFor($this->sam);
+    Receipt::factory()->for($this->sam)->create(['transaction_id' => $line->id]);
+
+    $this->actingAs($this->sam)->from(route('transactions.show', $line))->put(route('transactions.update', $line), [
+        'purpose' => $purpose,
+        'no_receipt' => false,
+        'next' => true,
+    ])->assertRedirect(route('transactions.show', $line))
+        ->assertSessionHasErrors(['purpose' => 'Say what this was for. It’s needed once a receipt is attached.']);
+})->with([null, '', '   ']);
+
+it('still lets a line without a receipt be saved with no purpose yet', function () {
+    $line = lineFor($this->sam);
+
+    $this->actingAs($this->sam)->put(route('transactions.update', $line), ['purpose' => '', 'no_receipt' => false])->assertSessionHasNoErrors();
+});
