@@ -65,7 +65,7 @@
         "tailnet": [
             "Composer\\Config::disableProcessTimeout",
             "npm run build",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"PHP_CLI_SERVER_WORKERS=4 php -d upload_max_filesize=25M -d post_max_size=200M -S 127.0.0.1:8088 -t public vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php\" \"php artisan queue:work --tries=1\" \"php artisan schedule:work\" --names=server,queue,schedule"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"cd public && PHP_CLI_SERVER_WORKERS=4 php -d upload_max_filesize=25M -d post_max_size=200M -S 127.0.0.1:8088 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php\" \"php artisan queue:work --tries=1\" \"php artisan schedule:work\" --names=server,queue,schedule"
         ]
     },
     "extra": {
