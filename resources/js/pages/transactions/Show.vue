@@ -12,7 +12,6 @@ import { type BreadcrumbItem } from '@/types';
 import type { LineStatus, PeriodStatus, ReceiptItem, ReconciliationStatus } from '@/types/cardtrail';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
-import axios from 'axios';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 interface Line {
@@ -64,19 +63,23 @@ const fields = reactive({
     no_receipt_reason: props.line.no_receipt_reason,
 });
 const status = ref<LineStatus>(props.line.status);
-const saveState = ref<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+const saving = ref(false);
+const justSaved = ref(false);
 const saveErrors = ref<Record<string, string>>({});
-let timer: ReturnType<typeof setTimeout> | undefined;
-let inFlight: Promise<void> | null = null;
+
+// Nothing is saved until Save is clicked; this is what was last saved, to spot unsaved changes.
+const snapshot = () =>
+    JSON.stringify({ purpose: fields.purpose ?? '', no_receipt: fields.no_receipt, no_receipt_reason: fields.no_receipt_reason ?? '' });
+const savedSnapshot = ref(snapshot());
+const dirty = computed(() => props.editable && snapshot() !== savedSnapshot.value);
 
 // Inertia reuses this page when moving between lines, so start fresh when the line changes.
 watch(
     () => props.line.id,
     () => {
-        clearTimeout(timer);
-        timer = undefined;
         Object.assign(fields, { purpose: props.line.purpose, no_receipt: props.line.no_receipt, no_receipt_reason: props.line.no_receipt_reason });
-        saveState.value = 'idle';
+        savedSnapshot.value = snapshot();
+        justSaved.value = false;
         saveErrors.value = {};
     },
 );
@@ -84,90 +87,51 @@ watch(
     () => props.line.status,
     (value) => (status.value = value),
 );
+watch(dirty, (value) => {
+    if (value) justSaved.value = false;
+});
 
-const failureMessage = (code: number | undefined) => {
-    if (code === 403) return 'This line can no longer be changed. Reload the page to see why.';
-    if (code === 419) return 'Your session has expired. Reload the page and sign in again.';
-    return 'Couldn’t save – check your connection. It will try again when you next type.';
-};
-
-/**
- * Autosave runs as a plain background request, not an Inertia visit, so it never navigates
- * and never cancels an upload or a page change that is under way.
- */
-const save = (): Promise<void> => {
+/** Save, then stay on this line or go on to the next one that needs work. */
+const save = (next: boolean) => {
     const lineId = props.line.id;
-    saveState.value = 'saving';
+    const attempted = snapshot();
+    saving.value = true;
 
-    const request = axios
-        .put(route('transactions.update', lineId), { ...fields }, { headers: { Accept: 'application/json' } })
-        .then(({ data }) => {
-            if (props.line.id !== lineId) return;
-            status.value = data.status;
-            saveErrors.value = {};
-            if (!timer) saveState.value = 'saved';
-        })
-        .catch((error) => {
-            if (props.line.id !== lineId) return;
-            saveState.value = 'error';
-            const errors = error.response?.status === 422 ? error.response.data.errors : null;
-            saveErrors.value = errors
-                ? Object.fromEntries(Object.entries(errors as Record<string, string[]>).map(([key, messages]) => [key, messages[0]]))
-                : { form: failureMessage(error.response?.status) };
-        });
-
-    inFlight = request.finally(() => {
-        if (inFlight === request) inFlight = null;
-    });
-
-    return request;
+    router.put(
+        route('transactions.update', lineId),
+        { ...fields, next },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                if (props.line.id !== lineId) return;
+                savedSnapshot.value = attempted;
+                saveErrors.value = {};
+                justSaved.value = true;
+            },
+            onError: (errors) => (saveErrors.value = errors),
+            onFinish: () => (saving.value = false),
+        },
+    );
 };
 
-const queueSave = () => {
-    if (!props.editable) {
+// Leaving the line with unsaved changes, or mid-upload: check first.
+const removeBeforeListener = router.on('before', (event) => {
+    if (event.detail.visit.method !== 'get') {
         return;
     }
 
-    clearTimeout(timer);
-    saveState.value = 'pending';
-    timer = setTimeout(() => {
-        timer = undefined;
-        save();
-    }, 800);
-};
-
-/** Send any typing that hasn't been saved yet. Resolves once nothing is waiting. */
-const flush = (): Promise<void> => {
-    if (timer) {
-        clearTimeout(timer);
-        timer = undefined;
-        return save();
-    }
-
-    return inFlight ?? Promise.resolve();
-};
-
-const flushThen = (then: () => void) => {
-    flush().finally(then);
-};
-
-const saveAndNext = () => {
-    flush().finally(() => router.put(route('transactions.update', props.line.id), { ...fields, next: true }, { preserveScroll: true }));
-};
-
-// Leaving the line by any link: save what was typed. Leaving mid-upload: check first.
-const removeBeforeListener = router.on('before', (event) => {
-    if (event.detail.visit.method === 'get' && upload.processing && !confirm('A receipt is still uploading. Leave this page anyway?')) {
+    if (upload.processing && !confirm('A receipt is still uploading. Leave this page anyway?')) {
         return false;
     }
 
-    if (timer) {
-        flush();
+    if (dirty.value && !confirm('You haven’t saved your changes to this line. Leave without saving?')) {
+        return false;
     }
 });
 
 const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (timer || inFlight || upload.processing) {
+    if (dirty.value || upload.processing) {
         event.preventDefault();
         event.returnValue = '';
     }
@@ -177,54 +141,48 @@ onMounted(() => window.addEventListener('beforeunload', warnBeforeUnload));
 onBeforeUnmount(() => {
     removeBeforeListener();
     window.removeEventListener('beforeunload', warnBeforeUnload);
-    if (timer) flush();
 });
 
 const useSuggestion = (purpose: string) => {
     fields.purpose = purpose;
-    queueSave();
 };
 
 const toggleNoReceipt = (value: boolean) => {
     fields.no_receipt = value;
-    queueSave();
 };
 
 const upload = useForm<{ files: File[]; source: 'camera' | 'upload' }>({ files: [], source: 'upload' });
 const uploadError = computed(() => Object.values(upload.errors)[0] ?? null);
 
+// Receipt changes keep whatever has been typed on screen; it's saved with the Save button.
 const uploadFiles = (files: File[], source: 'camera' | 'upload') => {
-    flushThen(() => {
-        upload.files = files;
-        upload.source = source;
-        upload.post(route('transactions.receipts.store', props.line.id), {
-            forceFormData: true,
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => upload.reset(),
-        });
+    upload.files = files;
+    upload.source = source;
+    upload.post(route('transactions.receipts.store', props.line.id), {
+        forceFormData: true,
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => upload.reset(),
     });
 };
 
 const moveToInbox = (receipt: ReceiptItem) => {
-    flushThen(() => router.delete(route('receipts.match.destroy', receipt.id), { preserveScroll: true, preserveState: true }));
+    router.delete(route('receipts.match.destroy', receipt.id), { preserveScroll: true, preserveState: true });
 };
 
 const deleteReceipt = (receipt: ReceiptItem) => {
     if (confirm(`Delete ${receipt.name}? This can’t be undone.`)) {
-        flushThen(() => router.delete(route('receipts.destroy', receipt.id), { preserveScroll: true, preserveState: true }));
+        router.delete(route('receipts.destroy', receipt.id), { preserveScroll: true, preserveState: true });
     }
 };
 
 const comment = useForm({ body: '' });
 const sendComment = () => {
-    flushThen(() =>
-        comment.post(route('transactions.comments.store', props.line.id), {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => comment.reset(),
-        }),
-    );
+    comment.post(route('transactions.comments.store', props.line.id), {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => comment.reset(),
+    });
 };
 
 const lockedReason = computed(() => {
@@ -243,9 +201,12 @@ const lockedReason = computed(() => {
     return null;
 });
 
-const saveLabel = computed(
-    () => ({ idle: '', pending: 'Unsaved changes…', saving: 'Saving…', saved: 'Saved', error: 'Not saved – check the form' })[saveState.value],
-);
+const saveLabel = computed(() => {
+    if (Object.keys(saveErrors.value).length) return 'Not saved – check the form';
+    if (saving.value) return 'Saving…';
+    if (dirty.value) return 'Unsaved changes';
+    return justSaved.value ? 'Saved' : '';
+});
 
 const textareaClass =
     'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60';
@@ -272,7 +233,7 @@ const textareaClass =
 
             <section class="rounded-xl border p-4">
                 <div class="flex items-start justify-between gap-3">
-                    <h1 class="text-lg font-semibold break-words">{{ line.description }}</h1>
+                    <h1 class="break-words text-lg font-semibold">{{ line.description }}</h1>
                     <LineStatusBadge :status="status" />
                 </div>
                 <p class="mt-2 text-2xl font-semibold tabular-nums">{{ formatPence(line.amount) }}</p>
@@ -300,7 +261,6 @@ const textareaClass =
                     :disabled="!editable"
                     :class="textareaClass"
                     placeholder="e.g. Lunch with a supplier to discuss the depot contract"
-                    @input="queueSave"
                 />
                 <p v-if="saveErrors.purpose" class="text-sm text-red-600 dark:text-red-400">{{ saveErrors.purpose }}</p>
                 <div v-if="editable && suggestions.length" class="flex flex-wrap gap-2">
@@ -326,7 +286,11 @@ const textareaClass =
                     <ReceiptThumb v-for="receipt in receipts" :key="receipt.id" :receipt="receipt">
                         <template v-if="editable" #actions>
                             <button type="button" class="flex-1 px-2 py-1.5 hover:bg-accent" @click="moveToInbox(receipt)">To inbox</button>
-                            <button type="button" class="flex-1 px-2 py-1.5 text-red-600 hover:bg-accent dark:text-red-400" @click="deleteReceipt(receipt)">
+                            <button
+                                type="button"
+                                class="flex-1 px-2 py-1.5 text-red-600 hover:bg-accent dark:text-red-400"
+                                @click="deleteReceipt(receipt)"
+                            >
                                 Delete
                             </button>
                         </template>
@@ -336,7 +300,9 @@ const textareaClass =
                 <template v-if="editable">
                     <ReceiptPicker :processing="upload.processing" @selected="uploadFiles" />
                     <p v-if="upload.progress" class="text-sm text-muted-foreground">Uploading… {{ upload.progress.percentage }}%</p>
-                    <p v-if="uploadError" class="text-sm text-red-600 dark:text-red-400">{{ uploadError }} Your purpose has been kept, so just try the upload again.</p>
+                    <p v-if="uploadError" class="text-sm text-red-600 dark:text-red-400">
+                        {{ uploadError }} Your purpose has been kept, so just try the upload again.
+                    </p>
 
                     <label v-if="!isCredit" class="flex items-center gap-2 text-sm">
                         <Checkbox :checked="fields.no_receipt" @update:checked="toggleNoReceipt" />
@@ -351,7 +317,6 @@ const textareaClass =
                             maxlength="500"
                             :class="textareaClass"
                             placeholder="e.g. Parking machine didn’t print one"
-                            @input="queueSave"
                         />
                         <p v-if="saveErrors.no_receipt_reason" class="text-sm text-red-600 dark:text-red-400">{{ saveErrors.no_receipt_reason }}</p>
                     </div>
@@ -376,15 +341,24 @@ const textareaClass =
                 <form v-if="can_comment" class="flex flex-col gap-2" @submit.prevent="sendComment">
                     <textarea v-model="comment.body" rows="2" maxlength="2000" :class="textareaClass" placeholder="Reply to accounts" />
                     <p v-if="comment.errors.body" class="text-sm text-red-600 dark:text-red-400">{{ comment.errors.body }}</p>
-                    <Button type="submit" variant="outline" class="self-end" :disabled="!comment.body.trim() || comment.processing">Send reply</Button>
+                    <Button type="submit" variant="outline" class="self-end" :disabled="!comment.body.trim() || comment.processing"
+                        >Send reply</Button
+                    >
                 </form>
             </section>
 
             <div class="sticky bottom-0 -mx-4 flex items-center gap-3 border-t bg-background/95 p-4 backdrop-blur">
-                <span class="flex-1 text-sm" :class="saveErrors.form ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'" aria-live="polite">
-                    {{ saveErrors.form ?? saveLabel }}
+                <span
+                    class="flex-1 text-sm"
+                    :class="Object.keys(saveErrors).length ? 'text-red-600 dark:text-red-400' : dirty ? 'font-medium' : 'text-muted-foreground'"
+                    aria-live="polite"
+                >
+                    {{ saveLabel }}
                 </span>
-                <Button v-if="editable" :disabled="saveState === 'saving'" @click="saveAndNext">Save &amp; next</Button>
+                <template v-if="editable">
+                    <Button variant="outline" :disabled="!dirty || saving" @click="save(false)">Save</Button>
+                    <Button :disabled="saving" @click="save(true)">Save &amp; next</Button>
+                </template>
                 <Button v-else-if="nav.next" variant="outline" as-child>
                     <Link :href="route('transactions.show', nav.next)">Next line</Link>
                 </Button>
