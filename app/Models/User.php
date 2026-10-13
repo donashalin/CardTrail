@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Jobs\PlaceReceipt;
 use App\Notifications\UserInvited;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -71,6 +72,18 @@ class User extends Authenticatable
             'is_cardholder' => 'boolean',
             'active' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Receipt folders are named after people, so a new name moves their files.
+        static::updated(function (User $user) {
+            if ($user->wasChanged('name')) {
+                PlaceReceipt::dispatchFor(Receipt::query()
+                    ->where('user_id', $user->id)
+                    ->orWhereHas('transaction.reconciliation', fn (Builder $query) => $query->where('user_id', $user->id)));
+            }
+        });
     }
 
     /** Emails are compared case-insensitively everywhere, so store them normalised. */

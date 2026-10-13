@@ -7,6 +7,8 @@ use App\Jobs\ProcessReceiptImage;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Receipts\ImageOptimiser;
+use App\Receipts\ReceiptFiler;
+use App\Receipts\ReceiptFolders;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -39,7 +41,7 @@ it('stores an uploaded receipt privately and completes the line', function () {
         ->original_name->toBe('Hotel Invoice.pdf')
         ->mime->toBe('application/pdf')
         ->source->toBe(ReceiptSource::Upload)
-        ->and($receipt->path)->toStartWith($this->sam->id.'/')->toEndWith('.pdf')
+        ->and($receipt->path)->toBe(ReceiptFolders::for($this->sam, $line).'/Hotel Invoice.pdf')
         ->and($line->fresh()->status)->toBe(TransactionStatus::Done);
     Storage::disk('receipts')->assertExists($receipt->path);
 });
@@ -166,7 +168,7 @@ it('keeps the original photo when saving the smaller copy fails', function () {
     $original = Storage::disk('receipts')->get($receipt->path);
     Receipt::updating(fn () => throw new RuntimeException('Database went away'));
 
-    expect(fn () => (new ProcessReceiptImage($receipt))->handle(app(ImageOptimiser::class)))->toThrow(RuntimeException::class);
+    expect(fn () => (new ProcessReceiptImage($receipt))->handle(app(ImageOptimiser::class), app(ReceiptFiler::class)))->toThrow(RuntimeException::class);
 
     expect(Storage::disk('receipts')->get($receipt->fresh()->path))->toBe($original)
         ->and(Storage::disk('receipts')->allFiles())->toHaveCount(1);

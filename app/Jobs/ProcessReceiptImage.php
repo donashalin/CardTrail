@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Receipt;
 use App\Receipts\ImageOptimiser;
+use App\Receipts\ReceiptFiler;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -18,8 +19,18 @@ class ProcessReceiptImage implements ShouldQueue
 
     public function __construct(public Receipt $receipt) {}
 
-    public function handle(ImageOptimiser $optimiser): void
+    public function handle(ImageOptimiser $optimiser, ReceiptFiler $filer): void
     {
-        $optimiser->optimise($this->receipt);
+        $filer->locked(function () use ($optimiser, $filer) {
+            // Another job may have moved the file while this one waited for the lock.
+            $receipt = $this->receipt->fresh();
+
+            if ($receipt === null) {
+                return;
+            }
+
+            $optimiser->optimise($receipt);
+            $filer->place($receipt);
+        });
     }
 }

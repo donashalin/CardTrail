@@ -42,6 +42,18 @@ Reminders: `php artisan reminders:send` (scheduled daily at 08:00).
 
 PHP's defaults (`upload_max_filesize=2M`, `post_max_size=8M`) are below CardTrail's limits: receipts can be up to 20 MB each, and up to 20 can be uploaded at once to the inbox. Raise them in your `php.ini` (`php --ini` shows where it is), for example `upload_max_filesize=25M` and `post_max_size=200M`. Otherwise a normal phone photo can fail to upload. On servers running PHP-FPM, `public/.user.ini` already sets these; `php artisan serve` ignores it, so set them in `php.ini` locally.
 
+### Where receipts are stored
+
+Receipts are filed by person, month and statement row, under their original names:
+
+```
+sam-cardholder/2026-09/Row9/Fuel receipt.pdf
+sam-cardholder/2026-09/Import2-Row4/Taxi.pdf     # the period's second statement, named as in the export
+sam-cardholder/Inbox/Hotel.pdf                   # not matched to a line yet
+```
+
+Files move when a receipt is matched, unmatched or its line is reassigned, and when a person's name or a period's month is edited. The queue worker does the moving, so keep it running. To store them in S3, fill in the `AWS_*` settings in `.env` and set `CARDTRAIL_RECEIPTS_DISK=s3`. Existing files are not copied across when you switch.
+
 ### Phones and push notifications
 
 Push notifications and installing to the Home Screen need HTTPS (or `localhost`). On an iPhone, open the site in Safari, then choose Share → Add to Home Screen. Open CardTrail from the Home Screen icon to be offered notifications. Email notifications work everywhere.

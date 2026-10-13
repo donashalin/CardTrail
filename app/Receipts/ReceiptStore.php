@@ -3,6 +3,7 @@
 namespace App\Receipts;
 
 use App\Enums\ReceiptSource;
+use App\Jobs\PlaceReceipt;
 use App\Jobs\ProcessReceiptImage;
 use App\Models\Receipt;
 use App\Models\Transaction;
@@ -50,7 +51,7 @@ final class ReceiptStore
     {
         $name = $file->getClientOriginalName();
         $extension = ReceiptType::extension($name) ?? throw new InvalidArgumentException("{$name} is not an accepted receipt type.");
-        $path = $this->newPath($owner, $extension);
+        $path = $this->newPath($owner, $line, $extension);
 
         Storage::disk($this->disk())->putFileAs(dirname($path), $file, basename($path));
         $this->written[] = $path;
@@ -68,7 +69,7 @@ final class ReceiptStore
             return null;
         }
 
-        $path = $this->newPath($owner, $extension);
+        $path = $this->newPath($owner, null, $extension);
         Storage::disk($this->disk())->put($path, $contents);
         $this->written[] = $path;
 
@@ -89,16 +90,20 @@ final class ReceiptStore
             'inbound_message_id' => $inboundMessageId,
         ]);
 
+        // Images are resized first; both jobs then give the file its original name.
         if (str_starts_with($mime, 'image/')) {
             ProcessReceiptImage::dispatch($receipt)->afterCommit();
+        } else {
+            PlaceReceipt::dispatch($receipt)->afterCommit();
         }
 
         return $receipt;
     }
 
-    private function newPath(User $owner, string $extension): string
+    /** A placeholder name in the right folder, until the job renames it. */
+    private function newPath(User $owner, ?Transaction $line, string $extension): string
     {
-        return $owner->id.'/'.Str::uuid().'.'.$extension;
+        return ReceiptFolders::for($owner, $line).'/'.Str::uuid().'.'.$extension;
     }
 
     private function disk(): string

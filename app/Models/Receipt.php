@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReceiptSource;
+use App\Jobs\PlaceReceipt;
 use Database\Factories\ReceiptFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,6 +30,13 @@ class Receipt extends Model
     protected static function booted(): void
     {
         static::deleted(fn (Receipt $receipt) => Storage::disk($receipt->disk)->delete($receipt->path));
+
+        // Matched to a line, or back to the inbox: the file follows.
+        static::updated(function (Receipt $receipt) {
+            if ($receipt->wasChanged('transaction_id')) {
+                PlaceReceipt::dispatch($receipt)->afterCommit();
+            }
+        });
     }
 
     public function user(): BelongsTo

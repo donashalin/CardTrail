@@ -4,8 +4,10 @@ namespace App\Imports;
 
 use App\Enums\ImportStatus;
 use App\Enums\PeriodStatus;
+use App\Jobs\PlaceReceipt;
 use App\Models\Import;
 use App\Models\Period;
+use App\Models\Receipt;
 use App\Models\Reconciliation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +27,9 @@ final class ImportRemover
             }
 
             $reconciliationIds = $import->transactions()->whereNotNull('reconciliation_id')->distinct()->pluck('reconciliation_id');
+
+            // Removing lines can renumber the period's other statements and sends their receipts to the inbox.
+            PlaceReceipt::dispatchFor(Receipt::query()->whereHas('transaction', fn ($query) => $query->where('period_id', $period->id)));
 
             $import->transactions()->delete();
             Reconciliation::query()->whereIn('id', $reconciliationIds)->whereDoesntHave('transactions')->delete();

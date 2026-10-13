@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PeriodStatus;
+use App\Jobs\PlaceReceipt;
 use Database\Factories\PeriodFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,16 @@ class Period extends Model
             'reminder_offsets' => 'array',
             'published_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Receipt folders are named after the month, so correcting it moves the files.
+        static::updated(function (Period $period) {
+            if ($period->wasChanged('month')) {
+                PlaceReceipt::dispatchFor(Receipt::query()->whereHas('transaction', fn ($query) => $query->where('period_id', $period->id)));
+            }
+        });
     }
 
     public function imports(): HasMany

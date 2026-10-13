@@ -4,6 +4,7 @@ namespace App\Periods;
 
 use App\Enums\PeriodStatus;
 use App\Enums\TransactionStatus;
+use App\Jobs\PlaceReceipt;
 use App\Models\Comment;
 use App\Models\Period;
 use App\Models\Receipt;
@@ -48,7 +49,9 @@ final class TransactionAssigner
             $sources = $moving->pluck('reconciliation_id')->filter()->unique();
 
             // Receipts belong to whoever uploaded them, and a query thread is about their work: neither travels with the line.
-            Receipt::query()->whereIn('transaction_id', $moving->pluck('id'))->update(['transaction_id' => null]);
+            $unlinked = Receipt::query()->whereIn('transaction_id', $moving->pluck('id'));
+            PlaceReceipt::dispatchFor(clone $unlinked);
+            $unlinked->update(['transaction_id' => null]);
             Comment::query()->whereIn('transaction_id', $moving->pluck('id'))->delete();
 
             foreach ($moving as $line) {
